@@ -16,6 +16,7 @@ case object RegKind extends Kind
 case object InstanceKind extends Kind
 case object PortKind extends Kind
 case object NodeKind extends Kind
+case object FormalNodeKind extends Kind
 case object MemKind extends Kind
 case object ExpKind extends Kind
 case object UnknownKind extends Kind

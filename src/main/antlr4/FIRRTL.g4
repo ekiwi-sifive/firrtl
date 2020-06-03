@@ -99,6 +99,9 @@ stmt
   | mdir 'mport' id '=' id '[' exp ']' exp info?
   | 'inst' id 'of' id info?
   | 'node' id '=' exp info?
+  | 'assert' id '=' exp info?
+  | 'assume' id '=' exp info?
+  | 'cover' id '=' exp info?
   | exp '<=' exp info?
   | exp '<-' exp info?
   | exp 'is' 'invalid' info?

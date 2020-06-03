@@ -323,6 +323,9 @@ class Visitor(infoMode: InfoMode) extends AbstractParseTreeVisitor[FirrtlNode] w
           CDefMemory(info, ctx.id(0).getText, tpe, size, seq = true, readUnderWrite = visitRuw(Option(ctx.ruw)))
         case "inst" => DefInstance(info, ctx.id(0).getText, ctx.id(1).getText)
         case "node" => DefNode(info, ctx.id(0).getText, visitExp(ctx_exp(0)))
+        case "assume" => DefFormalNode(info, ctx.id(0).getText, visitExp(ctx_exp(0)), FormalKind.Assume)
+        case "assert" => DefFormalNode(info, ctx.id(0).getText, visitExp(ctx_exp(0)), FormalKind.Assert)
+        case "cover" => DefFormalNode(info, ctx.id(0).getText, visitExp(ctx_exp(0)), FormalKind.Cover)
 
         case "stop(" => Stop(info, string2Int(ctx.intLit().getText), visitExp(ctx_exp(0)), visitExp(ctx_exp(1)))
         case "attach" => Attach(info, ctx_exp map visitExp)

@@ -27,6 +27,7 @@ object ResolveKinds extends Pass with PreservesAll[Transform] {
     s match {
       case sx: DefWire => kinds(sx.name) = WireKind
       case sx: DefNode => kinds(sx.name) = NodeKind
+      case sx: DefFormalNode => kinds(sx.name) = FormalNodeKind
       case sx: DefRegister => kinds(sx.name) = RegKind
       case sx: WDefInstance => kinds(sx.name) = InstanceKind
       case sx: DefMemory => kinds(sx.name) = MemKind

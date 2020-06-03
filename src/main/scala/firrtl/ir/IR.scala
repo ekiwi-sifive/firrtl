@@ -375,6 +375,26 @@ case class DefNode(info: Info, name: String, value: Expression) extends Statemen
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
 }
+object FormalKind extends Enumeration {
+  val Assert = Value("assert")
+  val Assume = Value("assume")
+  val Cover = Value("cover")
+}
+case class DefFormalNode(info: Info, name: String, value: Expression, kind: FormalKind.Value)
+  extends Statement with IsDeclaration {
+  def serialize: String = s"$kind $name = ${value.serialize}" + info.serialize
+  def mapStmt(f: Statement => Statement): Statement = this
+  def mapExpr(f: Expression => Expression): Statement = DefNode(info, name, f(value))
+  def mapType(f: Type => Type): Statement = this
+  def mapString(f: String => String): Statement = DefNode(info, f(name), value)
+  def mapInfo(f: Info => Info): Statement = this.copy(info = f(info))
+  def foreachStmt(f: Statement => Unit): Unit = Unit
+  def foreachExpr(f: Expression => Unit): Unit = f(value)
+  def foreachType(f: Type => Unit): Unit = Unit
+  def foreachString(f: String => Unit): Unit = f(name)
+  def foreachInfo(f: Info => Unit): Unit = f(info)
+}
+
 case class Conditionally(
     info: Info,
     pred: Expression,
