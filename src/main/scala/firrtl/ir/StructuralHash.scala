@@ -3,7 +3,23 @@
 package firrtl.ir
 import java.nio.ByteBuffer
 import java.security.MessageDigest
+
+import com.sun.tools.javac.code.ModuleFinder.ModuleNameFromSourceReader
+import firrtl.passes.memlib.DefAnnotatedMemory
+
 import scala.collection.mutable
+import firrtl.{DescribedStmt, DocString, EmptyDescription, MInfer, MRead, MReadWrite, MWrite, PrimOps, VRandom}
+
+
+trait Hasher {
+  def id(b: Byte): Unit
+  def apply(b: Boolean): Unit
+  def apply(i: Int): Unit
+  def apply(d: Double): Unit
+  def apply(b: BigInt): Unit
+  def apply(s: String): Unit
+  def digest(): Array[Byte]
+}
 
 import firrtl.PrimOps
 
@@ -126,12 +142,37 @@ object StructuralHash {
     case firrtl.CDefMPort(info, name, _, mem, exps, direction) =>
       id(104) ; h(name) ; h(mem) ; h(exps.length) ; exps.foreach(h) ; h(direction)
 
+    // Description
+    case DocString(string) => id(-60) ; h(string.string)
+    case EmptyDescription => id(-61)
+    case DescribedStmt(description, stmt) => id(-63) ; h(description) ; h(stmt)
+
+    // MPort
+    case MInfer => id(-70)
+    case MRead => id(-71)
+    case MWrite => id(-72)
+    case MReadWrite => id(-73)
+
+    // Emitter
+    case VRandom(width) => id(-75) ; h(width)
+
+    // MemIR
+    case DefAnnotatedMemory(_, name, dataType, depth, writeLatency, readLatency, readers, writers,
+    readwriters, readUnderWrite, maskGran, memRef) =>
+      id(-77) ; h(name) ; h(dataType) ; h(depth) ; h(writeLatency) ; h(readLatency)
+      h(readers.length) ; readers.foreach(h)
+      h(writers.length) ; writers.foreach(h)
+      h(readwriters.length) ; readwriters.foreach(h)
+      h(readUnderWrite.toString)
+      h(maskGran.size) ; maskGran.foreach(h)
+      h(memRef.size) ; memRef.foreach{ case (a, b) => h(a) ; h(b) }
+
     case other => h(other.serialize)
 
-    // primops have negative ids
+    // primops have negative ids -1 .. -50
   }
 
-  private def primOp(p: PrimOp): Byte = p match {
+  def primOp(p: PrimOp): Byte = p match {
     case PrimOps.Add => -1
     case PrimOps.Sub => -2
     case PrimOps.Mul => -3
