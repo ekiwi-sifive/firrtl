@@ -9,7 +9,7 @@ import java.security.MessageDigest
 import scala.collection.mutable
 
 /**
-  * This object can perform a "structural hash" over any FirrtlNode.
+  * This object can performs a "structural" hash over any FirrtlNode.
   * It ignore:
   * - `Expression` types
   * - Any `Info` fields
@@ -17,6 +17,8 @@ import scala.collection.mutable
   * Please note that module hashes don't include any submodules by default.
   * Thus if you need the hash to change if a submodule changes, make sure to
   * use the `transitive` functions.
+  *
+  * @author Kevin Laeufer <laeufer@cs.berkeley.edu>
   * */
 object StructuralHash {
   def md5(node: FirrtlNode): Array[Byte] = {
@@ -47,33 +49,27 @@ object StructuralHash {
     }
   }
 
+  @inline
+  private def id(b: Byte)(implicit m: MessageDigest): Unit = m.update(b)
+  @inline
+  private def h(i: Int)(implicit m: MessageDigest): Unit =
+    m.update(ByteBuffer.allocate(4).putInt(i).array())
+  @inline
+  private def h(d: Double)(implicit m: MessageDigest): Unit =
+    m.update(ByteBuffer.allocate(8).putDouble(d).array())
+  @inline
+  private def h(i: BigInt)(implicit m: MessageDigest): Unit = m.update(i.toByteArray)
+  @inline
+  private def h(b: Boolean)(implicit m: MessageDigest): Unit = if(b) id(1) else id(0)
+  @inline
+  private def h(s: String)(implicit m: MessageDigest): Unit = m.update(s.getBytes()) // encoding should not matter
+
+  // use to keep track of instanciated sub modules for transitive hashing
   private trait Mods { def add(n : String): Unit }
   private case object EmptyMods extends Mods { override def add(n: String): Unit = {} }
   private case class ModsArray(a: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()) extends Mods {
     override def add(n: String): Unit = a.append(n)
   }
-
-  @inline
-  private def id(b: Byte)(implicit m: MessageDigest): Unit = m.update(b)
-  @inline
-  private def h(i: Int)(implicit m: MessageDigest): Unit = m.update(ByteBuffer.allocate(4).putInt(i).array())
-  @inline
-  private def h(d: Double)(implicit m: MessageDigest): Unit = m.update(ByteBuffer.allocate(8).putDouble(d).array())
-  @inline
-  private def h(i: BigInt)(implicit m: MessageDigest): Unit = m.update(i.toByteArray)
-  @inline
-  private def h(b: Boolean)(implicit m: MessageDigest): Unit = if(b) id(1) else id(0)
-
-  // TODO: make thread safe
-  // caching strings isn't always faster
-//  private val stringCache = mutable.WeakHashMap[String,Array[Byte]]()
-//  @inline
-//  private def h(s: String)(implicit m: MessageDigest): Unit = {
-//    val bytes = stringCache.getOrElseUpdate(s, s.getBytes("UTF-8"))
-//    m.update(bytes)
-//  }
-  @inline
-  private def h(s: String)(implicit m: MessageDigest): Unit = m.update(s.getBytes()) // encoding should not matter
 
   //scalastyle:off cyclomatic.complexity method.length magic.number
   private def h(node: FirrtlNode)(implicit m: MessageDigest, mods: Mods): Unit = node match {
@@ -130,7 +126,8 @@ object StructuralHash {
     case UIntType(width) => id(50) ; h(width)
     case SIntType(width) => id(51) ; h(width)
     case FixedType(width, point) => id(52) ; h(width) ; h(point)
-    // TODO: case IntervalType
+    // TODO: hash constraints
+    case IntervalType(lower, upper, point) => id(53) ; h(lower.serialize) ; h(upper.serialize) ; h(point)
     case BundleType(fields) => id(54) ; h(fields.length) ; fields.foreach(h)
     case VectorType(tpe, size) => id(55) ; h(tpe) ; h(size)
     case ClockType => id(56)
@@ -188,10 +185,10 @@ object StructuralHash {
 
     case other => h(other.serialize)
 
-    // primops have negative ids -1 .. -50
+    // primops have negative ids -1 .. -50, see primOp method below
   }
 
-  def primOp(p: PrimOp): Byte = p match {
+  private def primOp(p: PrimOp): Byte = p match {
     case PrimOps.Add => -1
     case PrimOps.Sub => -2
     case PrimOps.Mul => -3
@@ -233,9 +230,5 @@ object StructuralHash {
     case PrimOps.Squeeze => -39
     case PrimOps.Wrap => -40
     case PrimOps.Clip => -41
-
-
-
-
   }
 }
