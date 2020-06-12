@@ -21,7 +21,15 @@ trait Hasher {
   def digest(): Array[Byte]
 }
 
-import firrtl.PrimOps
+case class MDHasher(m: MessageDigest) extends Hasher {
+  override def id(b: Byte): Unit = m.update(b)
+  override def apply(b: Boolean): Unit = if(b) id(1) else id(0)
+  override def apply(i: Int): Unit = m.update(ByteBuffer.allocate(4).putInt(i).array())
+  override def apply(d: Double): Unit = m.update(ByteBuffer.allocate(8).putDouble(d).array())
+  override def apply(b: BigInt): Unit = m.update(b.toByteArray)
+  override def apply(s: String): Unit = m.update(s.getBytes())
+  override def digest(): Array[Byte] = m.digest()
+}
 
 object StructuralHash {
 
@@ -54,6 +62,12 @@ object StructuralHash {
     h(node)(m)
     // stringCache.clear()
     m.digest()
+  }
+
+  def md5VirtualFunctionCall(node: FirrtlNode): Array[Byte] = {
+    val h = MDHasher(MessageDigest.getInstance("MD5"))
+    node._hash(h)
+    h.digest()
   }
 
   //scalastyle:off cyclomatic.complexity method.length magic.number

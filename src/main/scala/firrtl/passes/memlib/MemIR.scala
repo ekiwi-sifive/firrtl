@@ -53,4 +53,13 @@ case class DefAnnotatedMemory(
   def foreachType(f: Type => Unit): Unit = f(dataType)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(-77) ; h(name) ; dataType._hash(h) ; h(depth) ; h(writeLatency) ; h(readLatency)
+    h(readers.length) ; readers.foreach(h(_))
+    h(writers.length) ; writers.foreach(h(_))
+    h(readwriters.length) ; readwriters.foreach(h(_))
+    h(readUnderWrite.toString)
+    h(maskGran.size) ; maskGran.foreach(h(_))
+    h(memRef.size) ; memRef.foreach{ case (a, b) => h(a) ; h(b) }
+  }
 }

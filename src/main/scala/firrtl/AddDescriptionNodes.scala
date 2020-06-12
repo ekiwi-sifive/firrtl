@@ -24,10 +24,12 @@ private abstract class Description extends FirrtlNode
 
 private case class DocString(string: StringLit) extends Description {
   def serialize: String = "@[" + string.serialize + "]"
+  override def _hash(h: Hasher): Unit = { h.id(-60) ; h(string.string) }
 }
 
 private case object EmptyDescription extends Description {
   def serialize: String = ""
+  override def _hash(h: Hasher): Unit = { h.id(-61) }
 }
 
 private case class DescribedStmt(description: Description, stmt: Statement) extends Statement with HasDescription {
@@ -42,6 +44,7 @@ private case class DescribedStmt(description: Description, stmt: Statement) exte
   def foreachType(f: Type => Unit): Unit = stmt.foreachType(f)
   def foreachString(f: String => Unit): Unit = stmt.foreachString(f)
   def foreachInfo(f: Info => Unit): Unit = stmt.foreachInfo(f)
+  override def _hash(h: Hasher): Unit = { h.id(-63) ; description._hash(h) ; stmt._hash(h) }
 }
 
 private case class DescribedMod(description: Description,
@@ -59,6 +62,7 @@ private case class DescribedMod(description: Description,
   def foreachPort(f: Port => Unit): Unit = mod.foreachPort(f)
   def foreachString(f: String => Unit): Unit = mod.foreachString(f)
   def foreachInfo(f: Info => Unit): Unit = mod.foreachInfo(f)
+  override def _hash(h: Hasher): Unit = throw new NotImplementedError()
 }
 
 /** Wraps modules or statements with their respective described nodes. Descriptions come from [[DescriptionAnnotation]].

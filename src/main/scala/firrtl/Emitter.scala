@@ -175,6 +175,7 @@ case class VRandom(width: BigInt) extends Expression {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(-75) ;h(width) }
 }
 
 class VerilogEmitter extends SeqTransform with Emitter {

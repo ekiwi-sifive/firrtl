@@ -16,11 +16,14 @@ object SerializationBenchmark extends App {
     println("Benchmarking new Serializer.serialize")
     firrtl.benchmark.hot.util.benchmark(warmup, runs)(Serializer.serialize(input))
   } else if(select == "o") {
-    println("Bnechmarking legacy serialization")
+    println("Benchmarking legacy serialization")
     firrtl.benchmark.hot.util.benchmark(warmup, runs)(input.serialize)
   } else if(select == "h") {
-    println("Bnechmarking md5 hash")
+    println("Benchmarking md5 hash w/ match statement")
     firrtl.benchmark.hot.util.benchmark(warmup, runs)(StructuralHash.md5(input))
+  } else if(select == "v") {
+    println("Benchmarking md5 hash w/ virtual function call")
+    firrtl.benchmark.hot.util.benchmark(warmup, runs)(StructuralHash.md5VirtualFunctionCall(input))
   }
 
 }

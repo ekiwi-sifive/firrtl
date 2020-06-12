@@ -3,6 +3,8 @@
 package firrtl
 package ir
 
+import java.security.MessageDigest
+
 import Utils.{dec2string, indent, trim}
 import firrtl.constraint.{Constraint, IsKnown, IsVar}
 
@@ -11,12 +13,14 @@ import scala.math.BigDecimal.RoundingMode._
 /** Intermediate Representation */
 abstract class FirrtlNode {
   def serialize: String
+  def _hash(h: Hasher): Unit
 }
 
 abstract class Info extends FirrtlNode {
   // default implementation
   def serialize: String = this.toString
   def ++(that: Info): Info
+  override def _hash(h: Hasher): Unit = throw new RuntimeException("Not hashing info for now!")
 }
 case object NoInfo extends Info {
   override def toString: String = ""
@@ -80,6 +84,7 @@ case class StringLit(string: String) extends FirrtlNode {
     val ascii = normalized flatMap StringLit.toASCII
     ascii.mkString("\"", "", "\"")
   }
+  override def _hash(h: Hasher): Unit = h(string)
 }
 object StringLit {
   import org.apache.commons.text.StringEscapeUtils
@@ -129,6 +134,7 @@ abstract class PrimOp extends FirrtlNode {
     }
     DoPrim(this, exprs, consts, UnknownType)
   }
+  override def _hash(h: Hasher): Unit = h.id(StructuralHash.primOp(this))
 }
 
 abstract class Expression extends FirrtlNode {
@@ -165,6 +171,7 @@ case class Reference(name: String, tpe: Type = UnknownType, kind: Kind = Unknown
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(0) ; h(name) }
 }
 
 case class SubField(expr: Expression, name: String, tpe: Type = UnknownType, flow: Flow = UnknownFlow)
@@ -176,6 +183,7 @@ case class SubField(expr: Expression, name: String, tpe: Type = UnknownType, flo
   def foreachExpr(f: Expression => Unit): Unit = f(expr)
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(1) ; expr._hash(h) ; h(name) }
 }
 
 case class SubIndex(expr: Expression, value: Int, tpe: Type, flow: Flow = UnknownFlow)
@@ -187,6 +195,7 @@ case class SubIndex(expr: Expression, value: Int, tpe: Type, flow: Flow = Unknow
   def foreachExpr(f: Expression => Unit): Unit = f(expr)
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(2) ; expr._hash(h) ; h(value) }
 }
 
 case class SubAccess(expr: Expression, index: Expression, tpe: Type, flow: Flow = UnknownFlow)
@@ -198,6 +207,7 @@ case class SubAccess(expr: Expression, index: Expression, tpe: Type, flow: Flow 
   def foreachExpr(f: Expression => Unit): Unit = { f(expr); f(index) }
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(3) ; expr._hash(h) ; index._hash(h) }
 }
 
 case class Mux(cond: Expression, tval: Expression, fval: Expression, tpe: Type = UnknownType) extends Expression {
@@ -208,6 +218,7 @@ case class Mux(cond: Expression, tval: Expression, fval: Expression, tpe: Type =
   def foreachExpr(f: Expression => Unit): Unit = { f(cond); f(tval); f(fval) }
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(4) ; cond._hash(h) ; tval._hash(h) ; fval._hash(h) }
 }
 case class ValidIf(cond: Expression, value: Expression, tpe: Type) extends Expression {
   def serialize: String = s"validif(${cond.serialize}, ${value.serialize})"
@@ -217,6 +228,7 @@ case class ValidIf(cond: Expression, value: Expression, tpe: Type) extends Expre
   def foreachExpr(f: Expression => Unit): Unit = { f(cond); f(value) }
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(5) ; cond._hash(h) ; value._hash(h) }
 }
 abstract class Literal extends Expression {
   val value: BigInt
@@ -231,6 +243,7 @@ case class UIntLiteral(value: BigInt, width: Width) extends Literal {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = f(width)
+  override def _hash(h: Hasher): Unit = { h.id(6) ; h(value) ; width._hash(h) }
 }
 object UIntLiteral {
   def minWidth(value: BigInt): Width = IntWidth(math.max(value.bitLength, 1))
@@ -245,6 +258,7 @@ case class SIntLiteral(value: BigInt, width: Width) extends Literal {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = f(width)
+  override def _hash(h: Hasher): Unit = { h.id(7) ; h(value) ; width._hash(h) }
 }
 object SIntLiteral {
   def minWidth(value: BigInt): Width = IntWidth(value.bitLength + 1)
@@ -262,6 +276,7 @@ case class FixedLiteral(value: BigInt, width: Width, point: Width) extends Liter
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = { f(width); f(point) }
+  override def _hash(h: Hasher): Unit = { h.id(8) ; h(value) ; width._hash(h) ; point._hash(h) }
 }
 case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: Type) extends Expression {
   def serialize: String = op.serialize + "(" +
@@ -272,6 +287,7 @@ case class DoPrim(op: PrimOp, args: Seq[Expression], consts: Seq[BigInt], tpe: T
   def foreachExpr(f: Expression => Unit): Unit = args.foreach(f)
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(9) ; h.id(StructuralHash.primOp(op)) ; args.foreach(_._hash(h)) ; consts.foreach(h(_)) }
 }
 
 abstract class Statement extends FirrtlNode {
@@ -298,6 +314,7 @@ case class DefWire(info: Info, name: String, tpe: Type) extends Statement with I
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(20) ; h(name) ; tpe._hash(h) }
 }
 case class DefRegister(
     info: Info,
@@ -320,6 +337,9 @@ case class DefRegister(
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(21) ; h(name) ; tpe._hash(h) ; clock._hash(h) ; reset._hash(h) ; init._hash(h)
+  }
 }
 
 object DefInstance {
@@ -339,6 +359,7 @@ case class DefInstance(info: Info, name: String, module: String, tpe: Type = Unk
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(22) ; h(name) ; h(module) }
 }
 
 object ReadUnderWrite extends Enumeration {
@@ -380,6 +401,13 @@ case class DefMemory(
   def foreachType(f: Type => Unit): Unit = f(dataType)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(23) ; h(name) ; dataType._hash(h) ; h(depth) ; h(writeLatency) ; h(readLatency)
+    h(readers.length) ; readers.foreach(h(_))
+    h(writers.length) ; writers.foreach(h(_))
+    h(readwriters.length) ; readwriters.foreach(h(_))
+    h(readUnderWrite.toString)
+  }
 }
 case class DefNode(info: Info, name: String, value: Expression) extends Statement with IsDeclaration {
   def serialize: String = s"node $name = ${value.serialize}" + info.serialize
@@ -393,6 +421,7 @@ case class DefNode(info: Info, name: String, value: Expression) extends Statemen
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(24) ; h(name) ; value._hash(h) }
 }
 case class Conditionally(
     info: Info,
@@ -414,6 +443,7 @@ case class Conditionally(
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(25) ; pred._hash(h) ; conseq._hash(h) ; alt._hash(h) }
 }
 
 object Block {
@@ -453,6 +483,7 @@ case class Block(stmts: Seq[Statement]) extends Statement {
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(28) ; h(stmts.length) ; stmts.foreach(_._hash(h)) }
 }
 case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${loc.serialize} <- ${expr.serialize}" + info.serialize
@@ -466,6 +497,7 @@ case class PartialConnect(info: Info, loc: Expression, expr: Expression) extends
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(29) ; loc._hash(h) ; expr._hash(h) }
 }
 case class Connect(info: Info, loc: Expression, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${loc.serialize} <= ${expr.serialize}" + info.serialize
@@ -479,6 +511,7 @@ case class Connect(info: Info, loc: Expression, expr: Expression) extends Statem
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(30) ; loc._hash(h) ; expr._hash(h) }
 }
 case class IsInvalid(info: Info, expr: Expression) extends Statement with HasInfo {
   def serialize: String =  s"${expr.serialize} is invalid" + info.serialize
@@ -492,6 +525,7 @@ case class IsInvalid(info: Info, expr: Expression) extends Statement with HasInf
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(31) ; expr._hash(h) }
 }
 case class Attach(info: Info, exprs: Seq[Expression]) extends Statement with HasInfo {
   def serialize: String = "attach " + exprs.map(_.serialize).mkString("(", ", ", ")")
@@ -505,6 +539,7 @@ case class Attach(info: Info, exprs: Seq[Expression]) extends Statement with Has
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(32) ; h(exprs.length) ; exprs.foreach(_._hash(h)) }
 }
 case class Stop(info: Info, ret: Int, clk: Expression, en: Expression) extends Statement with HasInfo {
   def serialize: String = s"stop(${clk.serialize}, ${en.serialize}, $ret)" + info.serialize
@@ -518,6 +553,7 @@ case class Stop(info: Info, ret: Int, clk: Expression, en: Expression) extends S
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(33) ; h(ret) ; clk._hash(h) ; en._hash(h) }
 }
 case class Print(
     info: Info,
@@ -540,6 +576,9 @@ case class Print(
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(34) ; h(string.string) ; h(args.length) ; args.foreach(_._hash(h)) ; clk._hash(h) ; en._hash(h)
+  }
 }
 case object EmptyStmt extends Statement {
   def serialize: String = "skip"
@@ -553,6 +592,7 @@ case object EmptyStmt extends Statement {
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachString(f: String => Unit): Unit = Unit
   def foreachInfo(f: Info => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(35)  }
 }
 
 abstract class Width extends FirrtlNode {
@@ -607,29 +647,36 @@ class IntWidth(val width: BigInt) extends Width with Product {
     case 0 => width
     case _ => throw new IndexOutOfBoundsException
   }
+  override def _hash(h: Hasher): Unit = { h.id(40) ; h(width) }
 }
 case object UnknownWidth extends Width {
   def serialize: String = ""
+  override def _hash(h: Hasher): Unit = { h.id(41) }
 }
 case class CalcWidth(arg: Constraint) extends Width {
   def serialize: String = s"calcw(${arg.serialize})"
+  override def _hash(h: Hasher): Unit = { h.id(42) ; h(arg.serialize) } // TODO: hash constraints
 }
 case class VarWidth(name: String) extends Width with IsVar {
   override def serialize: String = s"<$name>"
+  override def _hash(h: Hasher): Unit = { h.id(43) ; h(name) }
 }
 
 /** Orientation of [[Field]] */
-abstract class Orientation extends FirrtlNode
+abstract class Orientation extends FirrtlNode { def _hash(h: Hasher): Unit }
 case object Default extends Orientation {
   def serialize: String = ""
+  override def _hash(h: Hasher): Unit = { h.id(44) }
 }
 case object Flip extends Orientation {
   def serialize: String = "flip "
+  override def _hash(h: Hasher): Unit = { h.id(45) }
 }
 
 /** Field of [[BundleType]] */
 case class Field(name: String, flip: Orientation, tpe: Type) extends FirrtlNode with HasName {
   def serialize: String = flip.serialize + name + " : " + tpe.serialize
+  override def _hash(h: Hasher): Unit = { h.id(46) ; flip._hash(h) ; tpe._hash(h) }
 }
 
 
@@ -715,11 +762,13 @@ case class UIntType(width: Width) extends GroundType {
   def serialize: String = "UInt" + width.serialize
   def mapWidth(f: Width => Width): Type = UIntType(f(width))
   def foreachWidth(f: Width => Unit): Unit = f(width)
+  override def _hash(h: Hasher): Unit = { h.id(50) ; width._hash(h) }
 }
 case class SIntType(width: Width) extends GroundType {
   def serialize: String = "SInt" + width.serialize
   def mapWidth(f: Width => Width): Type = SIntType(f(width))
   def foreachWidth(f: Width => Unit): Unit = f(width)
+  override def _hash(h: Hasher): Unit = { h.id(51) ; width._hash(h) }
 }
 case class FixedType(width: Width, point: Width) extends GroundType {
   override def serialize: String = {
@@ -728,6 +777,7 @@ case class FixedType(width: Width, point: Width) extends GroundType {
   }
   def mapWidth(f: Width => Width): Type = FixedType(f(width), f(point))
   def foreachWidth(f: Width => Unit): Unit = { f(width); f(point) }
+  override def _hash(h: Hasher): Unit = { h.id(52) ; width._hash(h) }
 }
 case class IntervalType(lower: Bound, upper: Bound, point: Width) extends GroundType {
   override def serialize: String = {
@@ -805,6 +855,7 @@ case class IntervalType(lower: Bound, upper: Bound, point: Width) extends Ground
 
   override def mapWidth(f: Width => Width): Type = this.copy(point = f(point))
   override def foreachWidth(f: Width => Unit): Unit = f(point)
+  override def _hash(h: Hasher): Unit = throw new NotImplementedError() // TODO
 }
 
 case class BundleType(fields: Seq[Field]) extends AggregateType {
@@ -812,17 +863,20 @@ case class BundleType(fields: Seq[Field]) extends AggregateType {
   def mapType(f: Type => Type): Type =
     BundleType(fields map (x => x.copy(tpe = f(x.tpe))))
   def foreachType(f: Type => Unit): Unit = fields.foreach{ x => f(x.tpe) }
+  override def _hash(h: Hasher): Unit = { h.id(54) ; h(fields.length) ; fields.foreach(_._hash(h)) }
 }
 case class VectorType(tpe: Type, size: Int) extends AggregateType {
   def serialize: String = tpe.serialize + s"[$size]"
   def mapType(f: Type => Type): Type = this.copy(tpe = f(tpe))
   def foreachType(f: Type => Unit): Unit = f(tpe)
+  override def _hash(h: Hasher): Unit = { h.id(55) ; h(size) }
 }
 case object ClockType extends GroundType {
   val width = IntWidth(1)
   def serialize: String = "Clock"
   def mapWidth(f: Width => Width): Type = this
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(56) }
 }
 /* Abstract reset, will be inferred to UInt<1> or AsyncReset */
 case object ResetType extends GroundType {
@@ -830,17 +884,20 @@ case object ResetType extends GroundType {
   def serialize: String = "Reset"
   def mapWidth(f: Width => Width): Type = this
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(57) }
 }
 case object AsyncResetType extends GroundType {
   val width = IntWidth(1)
   def serialize: String = "AsyncReset"
   def mapWidth(f: Width => Width): Type = this
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(58) }
 }
 case class AnalogType(width: Width) extends GroundType {
   def serialize: String = "Analog" + width.serialize
   def mapWidth(f: Width => Width): Type = AnalogType(f(width))
   def foreachWidth(f: Width => Unit): Unit = f(width)
+  override def _hash(h: Hasher): Unit = { h.id(59) ; width._hash(h) }
 }
 case object UnknownType extends Type {
   def serialize: String = "?"
@@ -848,15 +905,18 @@ case object UnknownType extends Type {
   def mapWidth(f: Width => Width): Type = this
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = { h.id(60) }
 }
 
 /** [[Port]] Direction */
-sealed abstract class Direction extends FirrtlNode
+sealed abstract class Direction extends FirrtlNode { def _hash(h: Hasher): Unit }
 case object Input extends Direction {
   def serialize: String = "input"
+  override def _hash(h: Hasher): Unit = h.id(70)
 }
 case object Output extends Direction {
   def serialize: String = "output"
+  override def _hash(h: Hasher): Unit = h.id(71)
 }
 
 /** [[DefModule]] Port */
@@ -868,6 +928,7 @@ case class Port(
   def serialize: String = s"${direction.serialize} $name : ${tpe.serialize}" + info.serialize
   def mapType(f: Type => Type): Port = Port(info, name, direction, f(tpe))
   def mapString(f: String => String): Port = Port(info, f(name), direction, tpe)
+  override def _hash(h: Hasher): Unit = { h.id(72) ; h(name) ; direction._hash(h) ; tpe._hash(h) }
 }
 
 /** Parameters for external modules */
@@ -878,14 +939,17 @@ sealed abstract class Param extends FirrtlNode {
 /** Integer (of any width) Parameter */
 case class IntParam(name: String, value: BigInt) extends Param {
   override def serialize: String = super.serialize + value
+  override def _hash(h: Hasher): Unit = { h.id(73) ; h(name) ; h(value) }
 }
 /** IEEE Double Precision Parameter (for Verilog real) */
 case class DoubleParam(name: String, value: Double) extends Param {
   override def serialize: String = super.serialize + value
+  override def _hash(h: Hasher): Unit = { h.id(74) ; h(name) ; h(value) }
 }
 /** String Parameter */
 case class StringParam(name: String, value: StringLit) extends Param {
   override def serialize: String = super.serialize + value.escape
+  override def _hash(h: Hasher): Unit = { h.id(75) ; h(name) ; h(value.string) }
 }
 /** Raw String Parameter
   * Useful for Verilog type parameters
@@ -893,6 +957,7 @@ case class StringParam(name: String, value: StringLit) extends Param {
   */
 case class RawStringParam(name: String, value: String) extends Param {
   override def serialize: String = super.serialize + s"'${value.replace("'", "\\'")}'"
+  override def _hash(h: Hasher): Unit = { h.id(76) ; h(name) ; h(value) }
 }
 
 /** Base class for modules */
@@ -925,6 +990,9 @@ case class Module(info: Info, name: String, ports: Seq[Port], body: Statement) e
   def foreachPort(f: Port => Unit): Unit = ports.foreach(f)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(80) ; h(name) ; h(ports.length) ; ports.foreach(_._hash(h)) ; body._hash(h)
+  }
 }
 /** External Module
   *
@@ -947,6 +1015,10 @@ case class ExtModule(
   def foreachPort(f: Port => Unit): Unit = ports.foreach(f)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(81) ; h(name) ; h(ports.length) ; ports.foreach(_._hash(h)) ; h(defname)
+    h(params.length) ; params.foreach(_._hash(h))
+  }
 }
 
 case class Circuit(info: Info, modules: Seq[DefModule], main: String) extends FirrtlNode with HasInfo {
@@ -959,4 +1031,5 @@ case class Circuit(info: Info, modules: Seq[DefModule], main: String) extends Fi
   def foreachModule(f: DefModule => Unit): Unit = modules foreach f
   def foreachString(f: String => Unit): Unit = f(main)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = { h.id(83) ; h(modules.length) ; modules.foreach(_._hash(h)) ; h(main) }
 }

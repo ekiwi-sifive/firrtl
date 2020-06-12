@@ -72,6 +72,7 @@ case object WVoid extends Expression {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = h.id(100)
 }
 case object WInvalid extends Expression {
   def tpe = UnknownType
@@ -82,6 +83,7 @@ case object WInvalid extends Expression {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = h.id(101)
 }
 // Useful for splitting then remerging references
 case object EmptyExpression extends Expression {
@@ -93,6 +95,7 @@ case object EmptyExpression extends Expression {
   def foreachExpr(f: Expression => Unit): Unit = Unit
   def foreachType(f: Type => Unit): Unit = Unit
   def foreachWidth(f: Width => Unit): Unit = Unit
+  override def _hash(h: Hasher): Unit = h.id(102)
 }
 
 object WDefInstance {
@@ -122,6 +125,7 @@ case class WDefInstanceConnector(
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = throw new NotImplementedError()
 }
 
 // Resultant width is the same as the maximum input width
@@ -275,15 +279,19 @@ class WrappedWidth (val w: Width) {
 abstract class MPortDir extends FirrtlNode
 case object MInfer extends MPortDir {
   def serialize: String = "infer"
+  override def _hash(h: Hasher): Unit = h.id(-70)
 }
 case object MRead extends MPortDir {
   def serialize: String = "read"
+  override def _hash(h: Hasher): Unit = h.id(-71)
 }
 case object MWrite extends MPortDir {
   def serialize: String = "write"
+  override def _hash(h: Hasher): Unit = h.id(-72)
 }
 case object MReadWrite extends MPortDir {
   def serialize: String = "rdwr"
+  override def _hash(h: Hasher): Unit = h.id(-73)
 }
 
 case class CDefMemory(
@@ -305,6 +313,9 @@ case class CDefMemory(
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(103) ; h(name) ; tpe._hash(h) ; h(size) ; h(seq) ; h(readUnderWrite.toString)
+  }
 }
 case class CDefMPort(info: Info,
     name: String,
@@ -326,4 +337,7 @@ case class CDefMPort(info: Info,
   def foreachType(f: Type => Unit): Unit = f(tpe)
   def foreachString(f: String => Unit): Unit = f(name)
   def foreachInfo(f: Info => Unit): Unit = f(info)
+  override def _hash(h: Hasher): Unit = {
+    h.id(103) ; h(name) ; h(mem) ; h(exps.length) ; exps.foreach(_._hash(h)) ; direction._hash(h)
+  }
 }
