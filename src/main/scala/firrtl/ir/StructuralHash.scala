@@ -1,29 +1,57 @@
 // See LICENSE for license details.
 
 package firrtl.ir
-import java.nio.ByteBuffer
-import java.security.MessageDigest
-
-import com.sun.tools.javac.code.ModuleFinder.ModuleNameFromSourceReader
 import firrtl.passes.memlib.DefAnnotatedMemory
-
-import scala.collection.mutable
 import firrtl.{DescribedStmt, DocString, EmptyDescription, MInfer, MRead, MReadWrite, MWrite, PrimOps, VRandom}
 
+import java.nio.ByteBuffer
+import java.security.MessageDigest
+import scala.collection.mutable
 
-trait Hasher {
-  def id(b: Byte): Unit
-  def apply(b: Boolean): Unit
-  def apply(i: Int): Unit
-  def apply(d: Double): Unit
-  def apply(b: BigInt): Unit
-  def apply(s: String): Unit
-  def digest(): Array[Byte]
-}
-
-import firrtl.PrimOps
-
+/**
+  * This object can perform a "structural hash" over any FirrtlNode.
+  * It ignore:
+  * - `Expression` types
+  * - Any `Info` fields
+  *
+  * Please note that module hashes don't include any submodules by default.
+  * Thus if you need the hash to change if a submodule changes, make sure to
+  * use the `transitive` functions.
+  * */
 object StructuralHash {
+  def md5(node: FirrtlNode): Array[Byte] = {
+    val m = MessageDigest.getInstance("MD5")
+    h(node)(m, EmptyMods)
+    m.digest()
+  }
+
+  def transitiveMd5(name: String, modules: Seq[DefModule]): Array[Byte] = {
+    val m = MessageDigest.getInstance("MD5")
+    transitiveH(name, modules, m)
+    m.digest()
+  }
+
+  private def transitiveH(name: String, modules: Seq[DefModule], m: MessageDigest): Unit = {
+    val nameToMod = modules.map(m => m.name -> m).toMap
+    // using Seq instead of Set for stability (if the order gets messed up the hash will be different
+    var todo = Seq(name)
+    var done = Seq[String]()
+    while(todo.nonEmpty) {
+      val mods = ModsArray()
+      todo.foreach{ n =>
+        val mod = nameToMod.getOrElse(n, throw new RuntimeException(s"Module $n cannot be found!"))
+        h(mod)(m, mods)
+      }
+      done = done ++ todo
+      todo = mods.a -- done
+    }
+  }
+
+  private trait Mods { def add(n : String): Unit }
+  private case object EmptyMods extends Mods { override def add(n: String): Unit = {} }
+  private case class ModsArray(a: mutable.ArrayBuffer[String] = mutable.ArrayBuffer()) extends Mods {
+    override def add(n: String): Unit = a.append(n)
+  }
 
   @inline
   private def id(b: Byte)(implicit m: MessageDigest): Unit = m.update(b)
@@ -47,17 +75,8 @@ object StructuralHash {
   @inline
   private def h(s: String)(implicit m: MessageDigest): Unit = m.update(s.getBytes()) // encoding should not matter
 
-
-
-  def md5(node: FirrtlNode): Array[Byte] = {
-    val m = MessageDigest.getInstance("MD5")
-    h(node)(m)
-    // stringCache.clear()
-    m.digest()
-  }
-
   //scalastyle:off cyclomatic.complexity method.length magic.number
-  private def h(node: FirrtlNode)(implicit m: MessageDigest): Unit = node match {
+  private def h(node: FirrtlNode)(implicit m: MessageDigest, mods: Mods): Unit = node match {
     case NoInfo => // ignore
     case FileInfo(_) => // ignore
     case MultiInfo(_) => // ignore
@@ -78,7 +97,7 @@ object StructuralHash {
     case DefWire(_, name, tpe) => id(20) ; h(name) ; h(tpe)
     case DefRegister(info, name, tpe, clock, reset, init) =>
       id(21) ; h(name) ; h(tpe) ; h(clock) ; h(reset) ; h(init)
-    case DefInstance(info, name, module, _) => id(22) ; h(name) ; h(module)
+    case DefInstance(info, name, module, _) => id(22) ; h(name) ; h(module) ; mods.add(module)
     case DefMemory(info, name, dataType, depth, writeLatency, readLatency, readers, writers,
     readwriters, readUnderWrite) =>
       id(23) ; h(name) ; h(dataType) ; h(depth) ; h(writeLatency) ; h(readLatency)
