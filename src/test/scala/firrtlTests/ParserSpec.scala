@@ -225,6 +225,38 @@ class ParserSpec extends FirrtlFlatSpec {
       Driver.execute(manager)
     }
   }
+
+  "FileInfo" should "be parsed correctly, especially with escaping" in {
+    def in(anno: String): String =
+      s"""
+        |circuit m:$anno
+        |  module m:
+        |    skip
+        |""".stripMargin
+    val c = firrtl.Parser.parse(in("@[test]"))
+    assert(c.info.isInstanceOf[firrtl.ir.FileInfo])
+    assert(c.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test")
+
+    val c2 = firrtl.Parser.parse(in("@[test\\n2]"))
+    assert(c2.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test\n2")
+
+    val c3 = firrtl.Parser.parse(in("@[test\\r2]"))
+    assert(c3.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test\r2")
+
+    val c4 = firrtl.Parser.parse(in("@[test\\t2]"))
+    assert(c4.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test\t2")
+
+    val c5 = firrtl.Parser.parse(in("@[test\\\"2]"))
+    assert(c5.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test\"2")
+
+    // we do not actually need to escape the quotation mark
+    val c6 = firrtl.Parser.parse(in("@[test\"2]"))
+    assert(c6.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test\"2")
+
+    // we can escape ']' with '\'
+    val c7 = firrtl.Parser.parse(in("@[test\\]2]"))
+    assert(c7.info.asInstanceOf[firrtl.ir.FileInfo].info.string == "test]2")
+  }
 }
 
 class ParserPropSpec extends FirrtlPropSpec {
