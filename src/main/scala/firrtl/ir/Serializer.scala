@@ -2,7 +2,6 @@
 
 package firrtl.ir
 
-import firrtl.{CDefMPort, WVoid}
 import firrtl.constraint.Constraint
 
 object Serializer {
@@ -27,7 +26,12 @@ object Serializer {
     case NoInfo => // empty string
     case FileInfo(info) => b ++= " @[" ; s(info) ; b ++= "]"
     case MultiInfo(infos) => throw new NotImplementedError()
-    case s : StringLit => s.serialize
+    case s : StringLit =>
+      if(s.string.contains(']')) { // s.string.contains('\n') || s.string.contains('\r') ||
+        b ++= s.serialize
+      } else {
+        b ++= s.string
+      }
 
     // Expressions
     case Reference(name, _, _, _) => b ++= name
@@ -52,6 +56,7 @@ object Serializer {
     // Statements
     case DefWire(info, name, tpe) => b ++= "wire " ; b ++= name ; b ++= " : " ; s(tpe) ; s(info)
     case DefRegister(info, name, tpe, clock, reset, init) =>
+      // TODO: init is missing!
       b ++= "reg " ; b ++= name ; b ++= " : " ; s(tpe) ; b ++= ", " ; s(clock) ; b ++= " with :" ; newLineAndIndent(1)
       b ++= "reset => (" ; s(reset) ; b ++= ", " ; b += ')' ; s(info)
     case DefInstance(info, name, module, _) => b ++= "inst " ; b ++= name ; b ++= " of " ; b ++= module ; s(info)
@@ -126,7 +131,7 @@ object Serializer {
     case StringParam(name, value) => b ++= "parameter " ; b ++= name ; b ++= " = " ; b ++= value.escape
     case RawStringParam(name, value) =>
       b ++= "parameter " ; b ++= name ; b ++= " = "
-      b += '\'' ; value.replace("'", "\\'") ; b += '\''
+      b += '\'' ; b ++= value.replace("'", "\\'") ; b += '\''
 
     case Module(info, name, ports, body) =>
       b ++= "module " ; b ++= name ; b ++= " :" ; s(info)
@@ -151,6 +156,8 @@ object Serializer {
     case firrtl.CDefMPort(info, name, _, mem, exps, direction) =>
       b ++= direction.serialize ; b ++= " mport " ; b ++= name ; b ++= " = " ; b ++= mem
       b += '[' ; s(exps.head) ; b ++= "], " ; s(exps(1)) ; s(info)
+
+    // case other => b ++= other.serialize
   }
 
   // serialize constraints
