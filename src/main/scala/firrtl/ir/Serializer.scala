@@ -24,7 +24,7 @@ object Serializer {
   //scalastyle:off cyclomatic.complexity method.length
   private def s(node: FirrtlNode)(implicit b: StringBuilder, indent: Int): Unit = node match {
     case NoInfo => // empty string
-    case FileInfo(info) => b ++= " @[" ; s(info) ; b ++= "]"
+    case FileInfo(info) => b ++= " @[" ; b ++= info ; b ++= "]"
     case MultiInfo(infos) => throw new NotImplementedError()
     case s : StringLit =>
       if(s.string.contains(']')) { // s.string.contains('\n') || s.string.contains('\r') ||
