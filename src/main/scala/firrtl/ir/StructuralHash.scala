@@ -3,6 +3,7 @@
 package firrtl.ir
 import java.nio.ByteBuffer
 import java.security.MessageDigest
+import scala.collection.mutable
 
 import firrtl.PrimOps
 
@@ -10,8 +11,6 @@ object StructuralHash {
 
   @inline
   private def id(b: Byte)(implicit m: MessageDigest): Unit = m.update(b)
-  @inline
-  private def h(s: String)(implicit m: MessageDigest): Unit = m.update(s.getBytes("UTF-8"))
   @inline
   private def h(i: Int)(implicit m: MessageDigest): Unit = m.update(ByteBuffer.allocate(4).putInt(i).array())
   @inline
@@ -21,10 +20,23 @@ object StructuralHash {
   @inline
   private def h(b: Boolean)(implicit m: MessageDigest): Unit = if(b) id(1) else id(0)
 
+  // TODO: make thread safe
+  // caching strings isn't always faster
+//  private val stringCache = mutable.WeakHashMap[String,Array[Byte]]()
+//  @inline
+//  private def h(s: String)(implicit m: MessageDigest): Unit = {
+//    val bytes = stringCache.getOrElseUpdate(s, s.getBytes("UTF-8"))
+//    m.update(bytes)
+//  }
+  @inline
+  private def h(s: String)(implicit m: MessageDigest): Unit = m.update(s.getBytes()) // encoding should not matter
+
+
 
   def md5(node: FirrtlNode): Array[Byte] = {
     val m = MessageDigest.getInstance("MD5")
     h(node)(m)
+    // stringCache.clear()
     m.digest()
   }
 
