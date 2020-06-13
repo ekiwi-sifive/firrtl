@@ -58,7 +58,7 @@ object Serializer {
     case DefRegister(info, name, tpe, clock, reset, init) =>
       // TODO: init is missing!
       b ++= "reg " ; b ++= name ; b ++= " : " ; s(tpe) ; b ++= ", " ; s(clock) ; b ++= " with :" ; newLineAndIndent(1)
-      b ++= "reset => (" ; s(reset) ; b ++= ", " ; b += ')' ; s(info)
+      b ++= "reset => (" ; s(reset) ; b ++= ", " ; s(init) ; b += ')' ; s(info)
     case DefInstance(info, name, module, _) => b ++= "inst " ; b ++= name ; b ++= " of " ; b ++= module ; s(info)
     case DefMemory(info, name, dataType, depth, writeLatency, readLatency, readers, writers,
                    readwriters, readUnderWrite) =>
@@ -98,7 +98,8 @@ object Serializer {
     case Stop(info, ret, clk, en) =>
       b ++= "stop(" ; s(clk) ; b ++= ", " ; s(en) ; b ++= ", " ; b ++= ret.toString ; b += ')' ; s(info)
     case Print(info, string, args, clk, en) =>
-      b ++= "printf(" ; s(clk) ; b ++= ", " ; s(en) ; b ++= ", " ; b ++= string.escape ; b += ')' ; s(info)
+      b ++= "printf(" ; s(clk) ; b ++= ", " ; s(en) ; b ++= ", " ; b ++= string.escape
+      if(args.nonEmpty) b ++= ", " ; s(args, ", ") ; b += ')' ; s(info)
     case EmptyStmt => b ++= "skip"
 
     case IntWidth(width) => b += '<' ; b ++= width.toString() ; b += '>'
