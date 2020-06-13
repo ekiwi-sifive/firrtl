@@ -139,16 +139,20 @@ object Serializer {
       ports.foreach{ p => newLineAndIndent(1) ;  s(p) }
       val isEmpty = body == EmptyStmt || body == Block(Seq())
       if(!isEmpty) {
+        newLineNoIndent() // add a new line between port declaration and body
         newLineAndIndent(1) ; s(body)(b, indent + 1)
       }
     case ExtModule(info, name, ports, defname, params) =>
-      b ++= "extmodule " ; b ++= name ; b ++= " :" ; s(info) ; newLineAndIndent(1)
+      b ++= "extmodule " ; b ++= name ; b ++= " :" ; s(info)
       ports.foreach{ p => newLineAndIndent(1) ; s(p) }
       newLineAndIndent(1)  ; b ++= "defname = " ; b ++= defname
       params.foreach{ p => newLineAndIndent(1) ; s(p) }
     case Circuit(info, modules, main) =>
       b ++= "circuit " ; b ++= main ; b ++= " :" ; s(info)
-      modules.foreach{m => newLineAndIndent(1) ; s(m)(b, indent + 1) }
+      if(modules.nonEmpty) {
+        newLineAndIndent(1) ; s(modules.head)(b, indent + 1)
+        modules.drop(1).foreach{m => newLineNoIndent(); newLineAndIndent(1) ; s(m)(b, indent + 1) }
+      }
 
     // WIR
     case firrtl.WVoid => b ++= "VOID"
@@ -175,6 +179,8 @@ object Serializer {
   private def newLineAndIndent(inc: Int = 0)(implicit b: StringBuilder, indent: Int): Unit = {
     b += NewLine ; doIndent(inc)
   }
+
+  private def newLineNoIndent()(implicit b: StringBuilder): Unit = b += NewLine
 
   /** create indent, inc allows for a temporary increment */
   private def doIndent(inc: Int)(implicit b: StringBuilder, indent: Int): Unit = {
