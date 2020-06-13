@@ -26,6 +26,25 @@ object SerializationBenchmark extends App {
     firrtl.benchmark.hot.util.benchmark(warmup, runs)(
       StructuralHash.transitiveMd5(input.main, input.modules)
     )
+  } else if(select == "test") {
+    println("Testing the new serialization against the old one")
+    val o = input.serialize.split('\n').filterNot(_.trim.isEmpty)
+    val n = Serializer.serialize(input).split('\n').filterNot(_.trim.isEmpty)
+    println(input.modules.head.serialize)
+    println(input.modules.head.asInstanceOf[firrtl.ir.Module].body)
+
+    println(s"Old lines: ${o.length}")
+    println(s"New lines: ${n.length}")
+    o.zip(n).zipWithIndex.foreach { case ((ol, nl), ii) =>
+      if(ol != nl) {
+        println(s"❌@$ii OLD: |$ol|")
+        println(s"❌@$ii NEW: |$nl|")
+        throw new RuntimeException()
+      } else {
+        println(s"✅        |$ol")
+      }
+    }
+
   }
 
 
