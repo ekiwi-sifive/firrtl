@@ -106,7 +106,7 @@ object Serializer {
     case CalcWidth(arg) => b ++= "calcw(" ; s(arg) ; b += ')'
     case VarWidth(name) => b += '<' ; b ++= name ; b += '>'
     case Default => // empty string
-    case Flip => b ++= "flip"
+    case Flip => b ++= "flip "
     case Field(name, flip, tpe) => s(flip) ; b ++= name ; b ++= " : " ; s(tpe)
 
     // Types
@@ -136,7 +136,10 @@ object Serializer {
     case Module(info, name, ports, body) =>
       b ++= "module " ; b ++= name ; b ++= " :" ; s(info)
       ports.foreach{ p => newLineAndIndent(1) ;  s(p) }
-      newLineAndIndent(2) ; s(body)(b, indent + 2)
+      val isEmpty = body == EmptyStmt || body == Block(Seq())
+      if(!isEmpty) {
+        newLineAndIndent(1) ; s(body)(b, indent + 1)
+      }
     case ExtModule(info, name, ports, defname, params) =>
       b ++= "extmodule " ; b ++= name ; b ++= " :" ; s(info) ; newLineAndIndent(1)
       ports.foreach{ p => newLineAndIndent(1) ; s(p) }
@@ -173,10 +176,9 @@ object Serializer {
   }
 
   /** create indent, inc allows for a temporary increment */
-  private def doIndent(inc: Int = 0)(implicit b: StringBuilder, indent: Int): Unit = {
-    (0 until (indent + inc)).foreach(b ++= Indent)
+  private def doIndent(inc: Int)(implicit b: StringBuilder, indent: Int): Unit = {
+    (0 until (indent + inc)).foreach { _ => b ++= Indent }
   }
-
 
   /** serialize firrtl nodes with a custom separator and the option to include the separator at the end */
   private def s(nodes: Seq[FirrtlNode], sep: String, noFinalSep: Boolean = true)
