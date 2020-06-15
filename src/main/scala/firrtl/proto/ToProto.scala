@@ -129,8 +129,8 @@ object ToProto {
     info match {
       case ir.NoInfo =>
         ib.setNone(Firrtl.SourceInfo.None.newBuilder)
-      case ir.FileInfo(ir.StringLit(text)) =>
-        ib.setText(text)
+      case ir.FileInfo(escaped) =>
+        ib.setText(ir.FileInfo.unEscape(escaped))
       // TODO properly implement MultiInfo
       case ir.MultiInfo(infos) =>
         val x = if (infos.nonEmpty) infos.head else ir.NoInfo

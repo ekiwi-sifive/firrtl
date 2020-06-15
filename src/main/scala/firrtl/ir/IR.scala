@@ -22,20 +22,46 @@ case object NoInfo extends Info {
   override def toString: String = ""
   def ++(that: Info): Info = that
 }
-case class FileInfo(info: StringLit) extends Info {
-  override def toString: String = " @[" + info.serialize + "]"
+
+/** Stores the string of a file info annotation in its escaped form. */
+class FileInfo(val info: String) extends Info {
+  override def toString: String = " @[" + info + "]"
   //scalastyle:off method.name
   def ++(that: Info): Info = if (that == NoInfo) this else MultiInfo(Seq(this, that))
 }
+
+object FileInfo {
+  @deprecated("The use of FileInfo(...) is deprecated. Use FileInfo.fromUnEscaped(...) instead", "1.4")
+  def apply(info: StringLit): FileInfo = new FileInfo(escape(info.string))
+  def fromEscaped(s: String): FileInfo = new FileInfo(s)
+  def fromUnEscaped(s: String): FileInfo = new FileInfo(escape(s))
+  /** prepends a `\` to: `\`, `\n`, `\t` and `]` */
+  def escape(s: String): String = {
+    s.replace("\\", "\\\\")
+      .replace("\n", "\\\n")
+      .replace("\t", "\\\t")
+      .replace("]", "\\]")
+  }
+  /** removes the `\` in front of `\`, `\n`, `\t` and `]` */
+  def unEscape(s: String): String = {
+    s.replace("\\]", "]")
+      .replace("\\\t", "\t")
+      .replace("\\\n", "\n")
+      .replace("\\\\", "\\")
+  }
+  def unapply(info: FileInfo): Option[String] =
+    if(info.eq(null)) None else Some(info.info)
+}
+
 case class MultiInfo(infos: Seq[Info]) extends Info {
-  private def collectStringLits(info: Info): Seq[StringLit] = info match {
-    case FileInfo(lit) => Seq(lit)
-    case MultiInfo(seq) => seq flatMap collectStringLits
+  private def collectStrings(info: Info): Seq[String] = info match {
+    case f : FileInfo => Seq(f.info)
+    case MultiInfo(seq) => seq flatMap collectStrings
     case NoInfo => Seq.empty
   }
   override def toString: String = {
-    val parts = collectStringLits(this)
-    if (parts.nonEmpty) parts.map(_.serialize).mkString(" @[", " ", "]")
+    val parts = collectStrings(this)
+    if (parts.nonEmpty) parts.mkString(" @[", " ", "]")
     else ""
   }
   //scalastyle:off method.name
