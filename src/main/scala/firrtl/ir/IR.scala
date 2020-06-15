@@ -31,7 +31,7 @@ class FileInfo(val info: String) extends Info {
 }
 
 object FileInfo {
-  @deprecated("The use of FileInfo(...) is deprecated. Use FileInfo.fromUnEscaped(...) instead", "1.4")
+  @deprecated("Use FileInfo.fromUnEscaped instead. FileInfo.apply will be removed in FIRRTL 1.5.", "FIRRTL 1.4")
   def apply(info: StringLit): FileInfo = new FileInfo(escape(info.string))
   def fromEscaped(s: String): FileInfo = new FileInfo(s)
   def fromUnEscaped(s: String): FileInfo = new FileInfo(escape(s))
