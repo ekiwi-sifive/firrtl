@@ -45,9 +45,9 @@ object FromProto {
       case Firrtl.SourceInfo.POSITION_FIELD_NUMBER =>
         val pos = info.getPosition
         val str = s"${pos.getFilename} ${pos.getLine}:${pos.getColumn}"
-        ir.FileInfo.fromUnEscaped(str)
+        ir.FileInfo.fromEscaped(str)
       case Firrtl.SourceInfo.TEXT_FIELD_NUMBER =>
-        ir.FileInfo.fromUnEscaped(info.getText)
+        ir.FileInfo.fromEscaped(info.getText)
       // NONE_FIELD_NUMBER or anything else
       case _ => ir.NoInfo
     }
