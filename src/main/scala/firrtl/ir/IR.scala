@@ -22,20 +22,45 @@ case object NoInfo extends Info {
   override def toString: String = ""
   def ++(that: Info): Info = that
 }
-case class FileInfo(info: StringLit) extends Info {
-  override def toString: String = " @[" + info.serialize + "]"
+
+/** Stores the string of a file info annotation in its escaped form. */
+case class FileInfo(escaped: String) extends Info {
+  override def toString: String = " @[" + escaped + "]"
   //scalastyle:off method.name
   def ++(that: Info): Info = if (that == NoInfo) this else MultiInfo(Seq(this, that))
+  def unescaped: String = FileInfo.unescape(escaped)
 }
+
+object FileInfo {
+  @deprecated("Use FileInfo.fromUnEscaped instead. FileInfo.apply will be removed in FIRRTL 1.5.", "FIRRTL 1.4")
+  def apply(info: StringLit): FileInfo = new FileInfo(escape(info.string))
+  def fromEscaped(s: String): FileInfo = new FileInfo(s)
+  def fromUnescaped(s: String): FileInfo = new FileInfo(escape(s))
+  /** prepends a `\` to: `\`, `\n`, `\t` and `]` */
+  def escape(s: String): String = {
+    s.replace("\\", "\\\\")
+      .replace("\n", "\\\n")
+      .replace("\t", "\\\t")
+      .replace("]", "\\]")
+  }
+  /** removes the `\` in front of `\`, `\n`, `\t` and `]` */
+  def unescape(s: String): String = {
+    s.replace("\\]", "]")
+      .replace("\\\t", "\t")
+      .replace("\\\n", "\n")
+      .replace("\\\\", "\\")
+  }
+}
+
 case class MultiInfo(infos: Seq[Info]) extends Info {
-  private def collectStringLits(info: Info): Seq[StringLit] = info match {
-    case FileInfo(lit) => Seq(lit)
-    case MultiInfo(seq) => seq flatMap collectStringLits
+  private def collectStrings(info: Info): Seq[String] = info match {
+    case f : FileInfo => Seq(f.escaped)
+    case MultiInfo(seq) => seq flatMap collectStrings
     case NoInfo => Seq.empty
   }
   override def toString: String = {
-    val parts = collectStringLits(this)
-    if (parts.nonEmpty) parts.map(_.serialize).mkString(" @[", " ", "]")
+    val parts = collectStrings(this)
+    if (parts.nonEmpty) parts.mkString(" @[", " ", "]")
     else ""
   }
   //scalastyle:off method.name

@@ -172,4 +172,27 @@ class InfoSpec extends FirrtlFlatSpec with FirrtlMatchers {
     val expectedInfos = Seq(FileInfo(StringLit("Top.scala 15:14")), FileInfo(StringLit("myfile.fir 6:4")))
     circuitState should containTree { case MultiInfo(`expectedInfos`) => true }
   }
+
+  "FileInfo" should "be able to contain a escaped characters" in {
+    def input(anno: String): String =
+      s"""circuit m: @[$anno]
+        |  module m:
+        |    skip
+        |""".stripMargin
+    def parseAnno(anno: String): FileInfo = {
+      firrtl.Parser.parse(input(anno)).info.asInstanceOf[FileInfo]
+    }
+
+    parseAnno("test\\\ntest").escaped should be ("test\\\ntest")
+    parseAnno("test\\\ntest").unescaped should be ("test\ntest")
+    parseAnno("test\\\ttest").escaped should be ("test\\\ttest")
+    parseAnno("test\\\ttest").unescaped should be ("test\ttest")
+    parseAnno("test\\\\test").escaped should be ("test\\\\test")
+    parseAnno("test\\\\test").unescaped should be ("test\\test")
+    parseAnno("test\\]test").escaped should be ("test\\]test")
+    parseAnno("test\\]test").unescaped should be ("test]test")
+    parseAnno("test[\\][\\]test").escaped should be ("test[\\][\\]test")
+    parseAnno("test[\\][\\]test").unescaped should be ("test[][]test")
+  }
+
 }
