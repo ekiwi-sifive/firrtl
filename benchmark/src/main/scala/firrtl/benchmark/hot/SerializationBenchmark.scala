@@ -1,8 +1,9 @@
 // See LICENSE for license details.
 package firrtl.benchmark.hot
 
+import firrtl.{CircuitState, LowFirrtlCompiler}
 import firrtl.benchmark.util._
-import firrtl.ir.{Serializer, StructuralHash}
+import firrtl.ir.{NodeCounter, Serializer, StructuralHash}
 
 object SerializationBenchmark extends App {
   val inputFile = args(0)
@@ -45,6 +46,18 @@ object SerializationBenchmark extends App {
       }
     }
 
+  } else if(select == "count") {
+    println("Counting Firrtl Nodes in input")
+    println()
+    println("Chirrtl:")
+    println("--------")
+    new NodeCounter().countAntPrint(input)
+    println()
+    println("LowFirrtl:")
+    println("--------")
+    val lo = new LowFirrtlCompiler()
+    val fl = lo.transform(CircuitState(input, Seq()))
+    new NodeCounter().countAntPrint(fl.circuit)
   }
 
 
