@@ -77,7 +77,10 @@ class StructuralHashSpec extends FlatSpec {
     assert(StructuralHash.md5WithPortNames(parse(a).modules.head) !=
       StructuralHash.md5WithPortNames(parse(b).modules.head),
       "renaming ports does affect the hash if we ask to")
+  }
 
+
+  it should "not ignore port names if asked to" in {
     val e =
       """circuit a:
         |  module a:
@@ -112,11 +115,77 @@ class StructuralHashSpec extends FlatSpec {
       "renaming internal wires should never affect the hash")
   }
 
+  it should "not ignore port bundle names if asked to" in {
+    val e =
+      """circuit a:
+        |  module a:
+        |    input x : {x: UInt<1>}
+        |    wire y: {x: UInt<1>}
+        |    y.x <= x.x
+        |""".stripMargin
+
+    val f =
+      """circuit a:
+        |  module a:
+        |    input x : {z: UInt<1>}
+        |    wire y: {x: UInt<1>}
+        |    y.x <= x.z
+        |""".stripMargin
+
+    val g =
+      """circuit a:
+        |  module a:
+        |    input x : {x: UInt<1>}
+        |    wire y: {z: UInt<1>}
+        |    y.z <= x.x
+        |""".stripMargin
+
+    // TODO: currently this fails because we do not namespace bundle types properly...
+    assert(md5(parse(e).modules.head) == md5(parse(f).modules.head),
+      "renaming port bundles does normally not affect the hash")
+    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) !=
+      StructuralHash.md5WithPortNames(parse(f).modules.head),
+      "renaming port bundles does affect the hash if we ask to")
+    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) ==
+      StructuralHash.md5WithPortNames(parse(g).modules.head),
+      "renaming internal wire bundles should never affect the hash")
+    assert(md5(parse(e).modules.head) == md5(parse(g).modules.head),
+      "renaming internal wire bundles should never affect the hash")
+  }
+
+
   it should "fail on Info" in {
     // it does not make sense to hash Info nodes
     assertThrows[RuntimeException] {
       md5(FileInfo(StringLit("")))
     }
+  }
+
+  "Bundles with different field names" should "be structurally equivalent" in {
+    def parse(str: String): BundleType = {
+      val src =
+        s"""circuit c:
+          |  module c:
+          |    input z: $str
+          |""".stripMargin
+      val c = firrtl.Parser.parse(src)
+      val tpe = c.modules.head.ports.head.tpe
+      tpe.asInstanceOf[BundleType]
+    }
+
+    val a = "{x: UInt<1>, y: UInt<1>}"
+    assert(md5(parse(a)) == md5(parse(a)), "the same bundle should always be equivalent")
+
+    val b = "{z: UInt<1>, y: UInt<1>}"
+    assert(md5(parse(a)) == md5(parse(b)), "changing a field name should maintain equivalence")
+
+    val c = "{x: UInt<2>, y: UInt<1>}"
+    assert(md5(parse(a)) != md5(parse(c)), "changing a field type should not maintain equivalence")
+
+    val d = "{x: UInt<1>, y: {y: UInt<1>}}"
+    assert(md5(parse(a)) != md5(parse(d)), "changing the structure should not maintain equivalence")
+
+    assert(md5(parse("{z: {y: {x: UInt<1>}}, a: UInt<1>}")) == md5(parse("{a: {b: {c: UInt<1>}}, z: UInt<1>}")))
   }
 
 
