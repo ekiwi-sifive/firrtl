@@ -23,6 +23,10 @@ import scala.collection.mutable
   * Two structurally equivalent modules are only functionally equivalent if they are part
   * of the same circuit and thus all modules referred to in DefInstance are the same.
   *
+  * TODO: should trying to hash individual statements vs. a whole module have a different behavior
+  *       wrt. agnostifying bundle field accesses, so that hash(`a.x`) == hash(`a.x`) no matter the type of `a`?
+  *       This would follow from the assumption that individual statement hashes are only used within a single module...
+  *
   * @author Kevin Laeufer <laeufer@cs.berkeley.edu>
   * */
 object StructuralHash {
