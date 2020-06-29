@@ -7,7 +7,7 @@ import org.scalatest._
 import firrtl.{HighFirrtlCompiler}
 
 class StructuralHashSpec extends FlatSpec {
-  private def md5(n: FirrtlNode): HashCode = StructuralHash.md5(n, true)
+  private def md5(n: FirrtlNode): HashCode = StructuralHash.md5(n, false)
   private val highFirrtlCompiler = new HighFirrtlCompiler
   private def parse(circuit: String): Circuit = {
     val rawFirrtl = firrtl.Parser.parse(circuit)
@@ -83,8 +83,8 @@ class StructuralHashSpec extends FlatSpec {
       "modules with different names can be structurally different")
 
     // for the Dedup pass we do need a way to take the port names into account
-    assert(StructuralHash.md5WithPortNames(parse(a).modules.head) !=
-      StructuralHash.md5WithPortNames(parse(b).modules.head),
+    assert(StructuralHash.md5WithSignificantPortNames(parse(a).modules.head) !=
+      StructuralHash.md5WithSignificantPortNames(parse(b).modules.head),
       "renaming ports does affect the hash if we ask to")
   }
 
@@ -114,11 +114,11 @@ class StructuralHashSpec extends FlatSpec {
         |    z <= x
         |""".stripMargin
 
-    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) !=
-      StructuralHash.md5WithPortNames(parse(f).modules.head),
+    assert(StructuralHash.md5WithSignificantPortNames(parse(e).modules.head) !=
+      StructuralHash.md5WithSignificantPortNames(parse(f).modules.head),
       "renaming ports does affect the hash if we ask to")
-    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) ==
-      StructuralHash.md5WithPortNames(parse(g).modules.head),
+    assert(StructuralHash.md5WithSignificantPortNames(parse(e).modules.head) ==
+      StructuralHash.md5WithSignificantPortNames(parse(g).modules.head),
       "renaming internal wires should never affect the hash")
     assert(md5(parse(e).modules.head) == md5(parse(g).modules.head),
       "renaming internal wires should never affect the hash")
@@ -149,14 +149,13 @@ class StructuralHashSpec extends FlatSpec {
         |    y.z <= x.x
         |""".stripMargin
 
-    // TODO: currently this fails because we do not namespace bundle types properly...
     assert(md5(parse(e).modules.head) == md5(parse(f).modules.head),
       "renaming port bundles does normally not affect the hash")
-    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) !=
-      StructuralHash.md5WithPortNames(parse(f).modules.head),
+    assert(StructuralHash.md5WithSignificantPortNames(parse(e).modules.head) !=
+      StructuralHash.md5WithSignificantPortNames(parse(f).modules.head),
       "renaming port bundles does affect the hash if we ask to")
-    assert(StructuralHash.md5WithPortNames(parse(e).modules.head) ==
-      StructuralHash.md5WithPortNames(parse(g).modules.head),
+    assert(StructuralHash.md5WithSignificantPortNames(parse(e).modules.head) ==
+      StructuralHash.md5WithSignificantPortNames(parse(g).modules.head),
       "renaming internal wire bundles should never affect the hash")
     assert(md5(parse(e).modules.head) == md5(parse(g).modules.head),
       "renaming internal wire bundles should never affect the hash")

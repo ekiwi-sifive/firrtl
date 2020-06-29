@@ -15,6 +15,10 @@ import scala.collection.mutable
   * - each identifier name is replaced by a unique integer which only depends on the oder of declaration
   *   and is thus deterministic
   *
+  * Because of the way we "agnostify" bundle types, all SubField access nodes need to have a known
+  * bundle type. Thus - in a lot of cases, like after reading firrtl from a file - you need to run
+  * the firrtl type inference before hashing.
+  *
   * Please note that module hashes don't include any submodules.
   * Two structurally equivalent modules are only functionally equivalent if they are part
   * of the same circuit and thus all modules referred to in DefInstance are the same.
@@ -37,7 +41,8 @@ object StructuralHash {
     MDHashCode(m.digest())
   }
 
-  def md5WithPortNames(module: DefModule): MDHashCode = {
+  /** This includes the names of ports and any port bundle field names in the hash. */
+  def md5WithSignificantPortNames(module: DefModule): MDHashCode = {
     val m = MessageDigest.getInstance("MD5")
     hashModuleAndPortNames(module, MessageDigestHasher(m))
     MDHashCode(m.digest())
@@ -64,7 +69,17 @@ object StructuralHash {
   private def hashModuleAndPortNames(m: DefModule, h: Hasher): Unit = {
     val sh = new StructuralHash(h)
     sh.hash(m)
-    sh.hashPortNames()
+    // hash port names
+    m.ports.foreach { p =>
+      h.update(p.name)
+      hashPortTypeName(p.tpe, h.update)
+    }
+  }
+
+  private def hashPortTypeName(tpe: Type, h: String => Unit): Unit = tpe match {
+    case BundleType(fields) => fields.foreach{ f => h(f.name) ; hashPortTypeName(f.tpe, h) }
+    case VectorType(vt, _) => hashPortTypeName(vt, h)
+    case _ => // ignore ground types since they do not have field names nor sub-types
   }
 
   private def hashCircuit(c: Circuit, h: Hasher): Unit = {
@@ -195,9 +210,6 @@ private case object DebugHasher extends Hasher {
 }
 
 class StructuralHash private(h: Hasher) {
-  // used to track the port names so that they can optionally be hashed
-  private val portNames = mutable.ArrayBuffer[String]()
-  private def hashPortNames(): Unit = portNames.foreach(hash)
   // replace identifiers with incrementing integers
   private val nameToInt = mutable.HashMap[String, Int]()
   private var nameCounter: Int = 0
@@ -360,7 +372,6 @@ class StructuralHash private(h: Hasher) {
   }
 
   private def hash(node: Port): Unit = {
-    portNames.append(node.name)
     id(68) ; n(node.name) ; hash(node.direction) ; hash(node.tpe)
   }
 
