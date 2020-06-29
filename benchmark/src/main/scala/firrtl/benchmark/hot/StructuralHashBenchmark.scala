@@ -25,6 +25,9 @@ object StructuralHashBenchmark extends App {
   if (select == "old") {
     println("Benchmarking Dedup agnostify and fastSerializedHash followed by String.hashCode.toString")
     hot.util.benchmark(warmup, runs) { oldDedup(preState.circuit) }
+  } else if (select == "serializer") {
+    println("Benchmarking Dedup agnostify and ir.Serializer.serialize() followed by String.hashCode.toString")
+    hot.util.benchmark(warmup, runs) { oldDedupWithNewSerializer(preState.circuit) }
   } else {
     println("Benchmarking new StrucuturalHash")
     hot.util.benchmark(warmup, runs) { structuralHash(preState.circuit) }
@@ -58,7 +61,14 @@ object StructuralHashBenchmark extends App {
       }
       val tag = builder.hashCode().toString
     }
+  }
 
-
+  private def oldDedupWithNewSerializer(c: firrtl.ir.Circuit): Unit = {
+    val top = CircuitTarget(c.main)
+    c.modules.foreach { m =>
+      val agnosticRename = RenameMap()
+      val agnosticModule = DedupModules.agnostify(top, m, agnosticRename, "thisModule")
+      val tag = firrtl.ir.Serializer.serialize(agnosticModule).hashCode().toString
+    }
   }
 }
