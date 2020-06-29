@@ -22,9 +22,12 @@ import scala.collection.mutable
   * @author Kevin Laeufer <laeufer@cs.berkeley.edu>
   * */
 object StructuralHash {
-  def md5(node: FirrtlNode): MDHashCode = {
+  def md5(node: FirrtlNode, debug: Boolean = false): MDHashCode = {
     val m = MessageDigest.getInstance("MD5")
     hash(node, MessageDigestHasher(m))
+    if(debug) {
+      hash(node, DebugHasher)
+    }
     MDHashCode(m.digest())
   }
 
@@ -183,6 +186,14 @@ private case class MessageDigestHasher(m: MessageDigest) extends Hasher {
   override def update(b: Array[Byte]): Unit = m.update(b)
 }
 
+private case object DebugHasher extends Hasher {
+  override def update(b: Byte): Unit = println(s"b(${b.toInt & 0xff})")
+  override def update(i: Int): Unit = println(s"i(${i})")
+  override def update(l: Long): Unit = println(s"l(${l})")
+  override def update(s: String): Unit = println(s"s(${s})")
+  override def update(b: Array[Byte]): Unit = println(s"bytes(${b.map(x => x.toInt & 0xff).mkString(", ")})")
+}
+
 class StructuralHash private(h: Hasher) {
   // used to track the port names so that they can optionally be hashed
   private val portNames = mutable.ArrayBuffer[String]()
@@ -213,7 +224,21 @@ class StructuralHash private(h: Hasher) {
       // no need to hash the number of arguments or constants since that is implied by the op
       id(1) ; h.update(StructuralHash.primOp(op)) ; args.foreach(hash) ; consts.foreach(hash)
     case UIntLiteral(value, width) => id(2) ; hash(value) ; hash(width)
-    case SubField(expr, name, _, _) => id(3) ; hash(expr) ;  n(name)
+    // We hash bundles as if fields are accessed by their index.
+    // Thus we need to also hash field accesses that way.
+    // This has the side-effect that `x.y` might hash to the same value as `z.r`, for example if the
+    // types are `x: {y: UInt<1>, ...}` and `z: {r: UInt<1>, ...}` respectively.
+    // They do not hash to the same value if the type of `z` is e.g., `z: {..., r: UInt<1>, ...}`
+    // as that would have the `r` field at a different index.
+    case SubField(expr, name, _, _) => id(3) ; hash(expr)
+      // find field index and hash that instead of the field name
+      val fields = expr.tpe match {
+        case b: BundleType => b.fields
+        case other =>
+          throw new RuntimeException(s"Unexpected type $other for SubField access. Did you run the type checker?")
+      }
+      val index = fields.zipWithIndex.find(_._1.name == name).map(_._2).get
+      hash(index)
     case SubIndex(expr, value, _, _) => id(4) ; hash(expr) ; hash(value)
     case SubAccess(expr, index, _, _) => id(5) ; hash(expr) ; hash(index)
     case Mux(cond, tval, fval, _) => id(6) ; hash(cond) ; hash(tval) ; hash(fval)
@@ -301,8 +326,14 @@ class StructuralHash private(h: Hasher) {
   }
 
   private def hash(node: Field): Unit = {
-    // TODO: is it correct ot use n(..) here?
-    id(48) ; n(node.name) ; hash(node.flip) ; hash(node.tpe)
+    // since we are only interested in a structural hash, we ignore field names
+    // this means that: hash(`{x : UInt<1>, y: UInt<2>}`) == hash(`{y : UInt<1>, x: UInt<2>}`)
+    // but:             hash(`{x : UInt<1>, y: UInt<2>}`) != hash(`{y : UInt<2>, x: UInt<1>}`)
+    // which seems strange, since the connect semantics rely on field names, but it is the behavior that
+    // has been used in the Dedup pass for a long time.
+    // This position-based notion of equality requires us to replace field names with field indexes when hashing
+    // SubField accesses.
+    id(48) ; hash(node.flip) ; hash(node.tpe)
   }
 
   //scalastyle:off cyclomatic.complexity
@@ -342,8 +373,9 @@ class StructuralHash private(h: Hasher) {
   }
 
   private def hash(node: DefModule): Unit = node match {
-    case Module(_, name, ports, body) =>
-      id(75) ; n(name) ; hash(ports.length) ; ports.foreach(hash) ; hash(body)
+    // the module name is ignored since it does not affect module functionality
+    case Module(_, _name, ports, body) =>
+      id(75) ; hash(ports.length) ; ports.foreach(hash) ; hash(body)
     case ExtModule(_, name, ports, defname, params) =>
       id(76) ; hash(name) ; hash(ports.length) ; ports.foreach(hash) ; hash(defname)
       hash(params.length) ; params.foreach(hash)

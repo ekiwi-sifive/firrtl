@@ -4,11 +4,20 @@ package firrtl.ir
 
 import firrtl.PrimOps._
 import org.scalatest._
-import firrtl.ir._
+import firrtl.{HighFirrtlCompiler}
 
 class StructuralHashSpec extends FlatSpec {
-  private def md5(n: FirrtlNode): HashCode = StructuralHash.md5(n)
-  private def parse(circuit: String): Circuit = firrtl.Parser.parse(circuit)
+  private def md5(n: FirrtlNode): HashCode = StructuralHash.md5(n, true)
+  private val highFirrtlCompiler = new HighFirrtlCompiler
+  private def parse(circuit: String): Circuit = {
+    val rawFirrtl = firrtl.Parser.parse(circuit)
+    // TODO: remove requirement that Firrtl needs to be type checked.
+    //       The only reason this is needed for the structural hash right now is because we
+    //       define bundles with the same list of field types to be the same, regardless of the
+    //       name of these fields. Thus when the fields are accessed, we need to know their position
+    //       in order to appropriately hash them.
+    highFirrtlCompiler.transform(firrtl.CircuitState(rawFirrtl, Seq())).circuit
+  }
 
   private val b0 = UIntLiteral(0,IntWidth(1))
   private val b1 = UIntLiteral(1,IntWidth(1))
