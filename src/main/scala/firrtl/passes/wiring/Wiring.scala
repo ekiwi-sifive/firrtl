@@ -10,6 +10,7 @@ import firrtl.annotations._
 import firrtl.annotations.AnnotationUtils._
 import firrtl.analyses.InstanceGraph
 import WiringUtils._
+//scalastyle:off
 
 /** A data store of one sink--source wiring relationship */
 case class WiringInfo(source: ComponentName, sinks: Seq[Named], pin: String)
@@ -91,7 +92,7 @@ class Wiring(wiSeq: Seq[WiringInfo]) extends Pass {
       val lca = iGraph.lowestCommonAncestor(sink, source)
 
       // Compute metadata along Sink to LCA paths.
-      sink.drop(lca.size - 1).sliding(2).toList.reverse.map {
+      sink.drop(lca.size - 1).sliding(2).toList.reverse.foreach {
         case Seq(WDefInstance(_,_,pm,_), WDefInstance(_,ci,cm,_)) =>
           val to = s"$ci.${portNames(cm)}"
           val from = s"${portNames(pm)}"

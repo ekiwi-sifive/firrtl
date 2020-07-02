@@ -57,7 +57,7 @@ class InstanceGraph(c: Circuit) {
     */
   @deprecated("Use fullHierarchyKey instead.", "1.4")
   lazy val fullHierarchy: mutable.LinkedHashMap[WDefInstance,Seq[Seq[WDefInstance]]] =
-    graph.pathsInDAG(toDefInstance(circuitTopInstance))
+  fullHierarchyKey.map{case (k, v) => toDefInstance(k) -> v.map(_.map(toDefInstance)) }
 
   /** A list of absolute paths (each represented by a Seq of instances)
     * of all module instances in the Circuit.
@@ -111,14 +111,18 @@ class InstanceGraph(c: Circuit) {
   }
 
   /** An [[firrtl.graph.EulerTour EulerTour]] representation of the [[firrtl.graph.DiGraph DiGraph]] */
+  @deprecated("Use tourKey instead.", "1.4")
   lazy val tour = EulerTour(graph, toDefInstance(circuitTopInstance))
+
+  /** An [[firrtl.graph.EulerTour EulerTour]] representation of the [[firrtl.graph.DiGraph DiGraph]] */
+  lazy val tourKey: EulerTour[Seq[Key]] = EulerTour(instanceGraph, circuitTopInstance)
 
   /** Finds the lowest common ancestor instances for two module names in
     * a design
     */
   def lowestCommonAncestor(moduleA: Seq[WDefInstance],
                            moduleB: Seq[WDefInstance]): Seq[WDefInstance] = {
-    tour.rmq(moduleA, moduleB)
+    tourKey.rmq(moduleA.map(toKey), moduleB.map(toKey)).map(toDefInstance)
   }
 
   /**

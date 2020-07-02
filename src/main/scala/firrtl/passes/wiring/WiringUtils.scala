@@ -103,6 +103,8 @@ object WiringUtils {
   def getLineage(childrenMap: ChildrenMap, module: String): Lineage =
     Lineage(module, childrenMap(module) map { case (i, m) => (i, getLineage(childrenMap, m)) } )
 
+  //scalastyle:off
+
   /** Return a map of sink instances to source instances that minimizes
     * distance
     *
@@ -175,8 +177,8 @@ object WiringUtils {
       }
     }
 
-    owners
-      .collect { case (k, v) if sinkInsts.contains(k) => (k, v.flatten) }.toMap
+    val ret = owners.collect { case (k, v) if sinkInsts.contains(k) => (k, v.flatten) }.toMap
+    ret
   }
 
   /** Helper script to extract a module name from a named Module or Target */
