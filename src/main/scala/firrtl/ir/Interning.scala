@@ -77,13 +77,71 @@ class InterningExpressionFactory {
   private val references = mutable.HashMap[String, Reference]()
   def makeReference(name: String): Reference = references.getOrElseUpdate(name, Reference(name))
 
-  private val subFields = mutable.HashMap[IdAndEqKey[Expression, String], SubField]()
-  def makeSubField(expr: Expression, name: String): SubField =
-    subFields.getOrElseUpdate(IdAndEqKey(expr, name), SubField(expr, name, UnknownType))
+  private val subFields = mutable.HashMap[String, SubField]()
+  private val oldSubFields = mutable.HashMap[String, List[SubField]]()
+  def makeSubField(expr: Expression, name: String): SubField = {
+    val key = expr.serialize + "." + name
+    val newHit = subFields.contains(key)
+    val r = subFields.getOrElseUpdate(key, SubField(expr, name))
 
-  private val subIndices = mutable.HashMap[IdAndEqKey[Expression, Int], SubIndex]()
-  def makeSubIndex(expr: Expression, value: Int): SubIndex =
-    subIndices.getOrElseUpdate(IdAndEqKey(expr, value), SubIndex(expr, value, UnknownType))
+    // DEBUG: also do old insertion method
+    val candidates = oldSubFields.getOrElse(name, List())
+    var oldHit = true
+    candidates.find(_.expr.eq(expr)).getOrElse {
+      oldHit = false
+      oldSubFields(name) = candidates :+ r
+    }
+    if(newHit != oldHit) {
+      println(candidates)
+    }
+
+    r
+  }
+
+  def printStatistics(): Unit = {
+    val newCount = subFields.size
+    val oldCount = oldSubFields.map(_._2.length).sum
+    println(s"Count: $newCount vs $oldCount")
+
+    val newNames = subFields.map(_._2.name).toSet
+    println(s"SubField Names: ${newNames.size} vs ${oldSubFields.size}")
+
+    val oldValid = oldSubFields("valid")
+    val uniqueSerializeOldValid = oldValid.map(_.expr.serialize).toSet
+    println(s"OldValid: ${oldValid.size} vs OldValid with unique serialization ${uniqueSerializeOldValid.size}")
+
+    val nameToObjects = oldValid.groupBy(_.expr.serialize)
+    val moreThan10 = nameToObjects.filter(_._2.length > 10)
+    moreThan10.take(10).foreach{ case (k,v) => println(s"$k: ${v.mkString(", ")}") }
+
+
+//    val sorted = subFields.toSeq.sortBy(_._2.length)
+//    sorted.foreach { case (name, fields) =>
+//      println(s"SubField $name: ${fields.length}")
+//    }
+  }
+
+//  private val subFields = mutable.HashMap[IdAndEqKey[Expression, String], SubField]()
+//  def makeSubField(expr: Expression, name: String): SubField = {
+//    val key = IdAndEqKey(expr, name)
+//    subFields.getOrElseUpdate(key, SubField(expr, name, UnknownType))
+//  }
+
+  private val idSubIndices = mutable.HashMap[IdAndEqKey[Expression, Int], SubIndex]()
+  private val subIndices = mutable.HashMap[String, SubIndex]()
+  def makeSubIndex(expr: Expression, value: Int): SubIndex = {
+    val key = expr.serialize + "[" + value + "]"
+    val newHit = subIndices.contains(key)
+    val oldKey = IdAndEqKey(expr, value)
+    val oldHit = idSubIndices.contains(oldKey)
+    idSubIndices.getOrElseUpdate(oldKey, SubIndex(expr, value, UnknownType))
+
+    if(newHit != oldHit) {
+      println(key)
+    }
+
+    subIndices.getOrElseUpdate(key, SubIndex(expr, value, UnknownType))
+  }
 
   private val subAccesses = mutable.HashMap[IdSeqKey[Expression], SubAccess]()
   def makeSubAccess(expr: Expression, index: Expression): SubAccess =
@@ -101,12 +159,16 @@ class InterningExpressionFactory {
   def makeValifId(cond: Expression, value: Expression): ValidIf =
     validIfs.getOrElseUpdate(IdSeqKey(Seq(cond, value)), ValidIf(cond, value, UnknownType))
 
-  private val uIntLits = mutable.HashMap[IdAndEqKey[Width, BigInt], UIntLiteral]()
-  def makeUIntLiteral(value: BigInt, width: Width = UnknownWidth): UIntLiteral =
-    uIntLits.getOrElseUpdate(IdAndEqKey(width, value), UIntLiteral(value, width))
+  private val uIntUnknown = mutable.HashMap[BigInt, UIntLiteral]()
+  def makeUIntWithUnknownWidth(value: BigInt): UIntLiteral =
+    uIntUnknown.getOrElseUpdate(value, UIntLiteral(value, UnknownWidth))
+
+  private val uIntLits = mutable.HashMap[String, UIntLiteral]()
+  def makeUInt(value: BigInt, width: IntWidth): UIntLiteral =
+    uIntLits.getOrElseUpdate(value + "." + width.width, UIntLiteral(value, width))
 
   private val sIntLits = mutable.HashMap[IdAndEqKey[Width, BigInt], SIntLiteral]()
-  def makeSIntLiteral(value: BigInt, width: Width = UnknownWidth): SIntLiteral =
+  def makeSInt(value: BigInt, width: Width = UnknownWidth): SIntLiteral =
     sIntLits.getOrElseUpdate(IdAndEqKey(width, value), SIntLiteral(value, width))
 
   private val fixedLits = mutable.HashMap[IdSeqAndEqKey[Width, BigInt], FixedLiteral]()
@@ -135,7 +197,10 @@ private class IdKey[T <: AnyRef](val k: T) {
 private object IdKey { def apply[T <: AnyRef](e: T): IdKey[T] = new IdKey[T](e) }
 private class IdAndEqKey[I <: AnyRef, E](val i: I, val e: E) {
   override def equals(obj: Any): Boolean = obj match {
-    case i : IdAndEqKey[_, _] => i.i.eq(i) && i.e == e
+    case i : IdAndEqKey[_, _] =>
+      def sameId = i.i.eq(this.i)
+      def sameData = i.e == this.e
+      sameId && sameData
     case _ => false
   }
   override val hashCode: Int = (System.identityHashCode(i), e).hashCode()
