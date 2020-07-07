@@ -31,3 +31,15 @@ private[firrtl] class IdAndEqKey[I <: AnyRef, E](val i: I, val e: E) {
 private[firrtl] object IdAndEqKey {
   def apply[I <: AnyRef, E](i: I, e: E): IdAndEqKey[I, E] = new IdAndEqKey[I,E](i, e)
 }
+// TODO: would it make sense to replace Seq[T] with Product[T]?
+private[firrtl] class IdSeqAndEqKey[I <: AnyRef, E](val i: Seq[I], val e: E) {
+  override def equals(obj: Any): Boolean = obj match {
+    case other : IdSeqAndEqKey[_, _] =>
+      i.zip(other.i).forall{ case (a,b) => a.eq(b) } && i.length == other.i.length && other.e == e
+    case _ => false
+  }
+  override val hashCode: Int = (i.map(System.identityHashCode).hashCode(), e.hashCode()).hashCode()
+}
+private[firrtl] object IdSeqAndEqKey {
+  def apply[I <: AnyRef, E](i: Seq[I], e: E): IdSeqAndEqKey[I, E] = new IdSeqAndEqKey[I,E](i, e)
+}
