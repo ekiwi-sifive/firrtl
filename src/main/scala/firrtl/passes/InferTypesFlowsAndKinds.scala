@@ -26,9 +26,12 @@ object InferTypesFlowsAndKinds extends Pass {
     val replaceUnknowns = new ReplaceUnknowns(Namespace())
 
     // Module types are global and needed at all DefInstance sites.
-    val moduleTypes = c.modules.map(m => m.name -> replaceUnknowns(Utils.module_type(m))).toMap
+    // We need to replace all unknown widths and bounds here in order to ensure that
+    // they will be replaced with the same variable for all instances.
+    val noUnknownPorts = c.mapModule(m => m.mapPort(p => p.copy(tpe = replaceUnknowns(p.tpe))))
+    val moduleTypes = noUnknownPorts.modules.map(m => m.name -> replaceUnknowns(Utils.module_type(m))).toMap
 
-    c.mapModule(onModule(replaceUnknowns, moduleTypes))
+    noUnknownPorts.mapModule(onModule(replaceUnknowns, moduleTypes))
   }
 
   private def onModule(replaceUnknowns: ReplaceUnknowns, moduleTypes: Map[String, Type])(m: DefModule): DefModule = {
@@ -176,6 +179,7 @@ private class ReplaceUnknowns(namespace: Namespace) {
     case UnknownWidth => VarWidth(namespace.newName("w"))
     case wx => wx
   }
+  // TODO: ensure that the same object is returned in case no unknowns are found
   def apply(t: Type): Type = t.mapType(apply).mapWidth(apply) match {
     case i: IntervalType => i.copy(lower = apply(i.lower), upper = apply(i.upper))
     case x => x
