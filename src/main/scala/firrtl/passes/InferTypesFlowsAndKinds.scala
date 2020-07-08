@@ -42,7 +42,7 @@ object InferTypesFlowsAndKinds extends Pass {
 
   private def onStmt(s: Statement)(implicit lut: Lookup): Statement = s match {
     case sx: DefInstance =>
-      sx.copy(tpe = lut.declare(sx.name, lut.moduleTypes(sx.name), InstanceKind))
+      sx.copy(tpe = lut.declare(sx.name, lut.moduleTypes(sx.module), InstanceKind))
     case sx: DefWire =>
       sx.copy(tpe = lut.declare(sx.name, sx.tpe, WireKind))
     case sx: DefNode =>
@@ -178,5 +178,6 @@ private class ReplaceUnknowns(namespace: Namespace) {
   }
   def apply(t: Type): Type = t.mapType(apply).mapWidth(apply) match {
     case i: IntervalType => i.copy(lower = apply(i.lower), upper = apply(i.upper))
+    case x => x
   }
 }
