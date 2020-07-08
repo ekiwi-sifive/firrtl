@@ -12,9 +12,7 @@ import org.scalatest._
 /** Tests the combined results of ResolveKinds, InferTypes and ResolveFlows */
 class InferTypesFlowsAndKindsSpec extends FlatSpec {
   private val deps = Seq(
-    Dependency(passes.ResolveKinds),
-    Dependency(passes.InferTypes),
-    Dependency(passes.ResolveFlows))
+    Dependency(passes.InferTypesFlowsAndKinds))
   private val manager = new TransformManager(deps)
   private def infer(src: String): ir.Circuit =
     manager.execute(CircuitState(firrtl.Parser.parse(src), Seq())).circuit
