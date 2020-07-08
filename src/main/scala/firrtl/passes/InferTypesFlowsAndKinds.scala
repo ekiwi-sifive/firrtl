@@ -121,12 +121,18 @@ object InferTypesFlowsAndKinds extends Pass {
     case SinkFlow => SourceFlow
   }
 
-  private def isFlipped(tpe: Type, fieldTrace: List[String]): Boolean = tpe match {
-    case BundleType(fields) =>
-      val field = fields.find(_.name == fieldTrace.head).get
-      isFlipped(field.tpe, fieldTrace.tail) ^ (field.flip == Flip)
-    case VectorType(tpe, _) => isFlipped(tpe, fieldTrace)
-    case _ => assert(fieldTrace.isEmpty) ; false
+  private def isFlipped(tpe: Type, fieldTrace: List[String]): Boolean =
+  // Note: the trace might not reach down all the way to a ground type.
+  //       e.g. we could have a bundle with field x.y.z, but we are only interested
+  //       in x.y, thus only y is in the trace. The base case is always no flip.
+  if(fieldTrace.isEmpty) { false } else {
+    tpe match {
+      case BundleType(fields) =>
+        val field = fields.find(_.name == fieldTrace.head).get
+        isFlipped(field.tpe, fieldTrace.tail) ^ (field.flip == Flip)
+      case VectorType(tpe, _) => isFlipped(tpe, fieldTrace)
+      case _ => assert(fieldTrace.isEmpty) ; false
+    }
   }
 }
 
