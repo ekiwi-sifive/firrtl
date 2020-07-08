@@ -5,7 +5,7 @@ package firrtlTests.passes
 import firrtl.ir.SubField
 import firrtl.options.Dependency
 import firrtl.stage.TransformManager
-import firrtl.{CircuitState, InstanceKind, NodeKind, PortKind, RegKind, SinkFlow, SourceFlow, WireKind, ir, passes}
+import firrtl.{CircuitState, InstanceKind, MemKind, NodeKind, PortKind, RegKind, SinkFlow, SourceFlow, WireKind, ir, passes}
 import org.scalatest._
 
 class InferTypesFlowsAndKindsSpec extends FlatSpec {
@@ -32,7 +32,7 @@ class InferTypesFlowsAndKindsSpec extends FlatSpec {
     c.modules.find(_.name == name).get.asInstanceOf[ir.Module]
 
   it should "infer references to ports, wires, nodes and registers" in {
-    val node = getNodes(infer(
+    val node = getNodes(getModule(infer(
       """circuit m:
         |  module m:
         |    input clk: Clock
@@ -45,7 +45,7 @@ class InferTypesFlowsAndKindsSpec extends FlatSpec {
         |    node nna = na
         |    node na2 = a
         |    node a_plus_c = add(a, c)
-        |""".stripMargin).modules.head.asInstanceOf[ir.Module].body).toMap
+        |""".stripMargin), "m").body).toMap
 
     assert(node("na").tpe == ir.UIntType(ir.IntWidth(4)))
     assert(node("na").asInstanceOf[ir.Reference].flow == SourceFlow)
@@ -129,9 +129,48 @@ class InferTypesFlowsAndKindsSpec extends FlatSpec {
   }
 
   it should "infer types for references to memories" in {
+    val c = infer(
+      """circuit m:
+        |  module m:
+        |    mem m:
+        |      data-type => UInt
+        |      depth => 30
+        |      reader => r
+        |      writer => w
+        |      read-latency => 1
+        |      write-latency => 1
+        |      read-under-write => undefined
+        |
+        |    node m_r_addr = m.r.addr
+        |    node m_r_data = m.r.data
+        |    node m_w_addr = m.w.addr
+        |    node m_w_data = m.w.data
+        |""".stripMargin)
+    val m = getModule(c, "m")
+    val node = getNodes(m.body).toMap
+    // this might be a little flaky...
+    val memory = m.body.asInstanceOf[ir.Block].stmts.head.asInstanceOf[ir.DefMemory]
 
 
+    // after InferTypes, all expressions referring to the `data` should have this type:
+    val dataTpe = memory.dataType.asInstanceOf[ir.UIntType]
+    val addrTpe = ir.UIntType(ir.IntWidth(5))
 
+    assert(node("m_r_addr").tpe == addrTpe)
+    assert(node("m_r_data").tpe == dataTpe)
+    assert(node("m_w_addr").tpe == addrTpe)
+    assert(node("m_w_data").tpe == dataTpe)
+
+    val memory_ref = node("m_r_addr").asInstanceOf[ir.SubField].expr
+      .asInstanceOf[ir.SubField].expr.asInstanceOf[ir.Reference]
+    assert(memory_ref.kind == MemKind)
+    val mem_ref_tpe = memory_ref.tpe.asInstanceOf[ir.BundleType]
+    val r_tpe = mem_ref_tpe.fields.find(_.name == "r").get.tpe.asInstanceOf[ir.BundleType]
+    val w_tpe = mem_ref_tpe.fields.find(_.name == "w").get.tpe.asInstanceOf[ir.BundleType]
+    assert(r_tpe.fields.find(_.name == "addr").get.tpe == addrTpe)
+    assert(r_tpe.fields.find(_.name == "data").get.tpe == dataTpe)
+    assert(w_tpe.fields.find(_.name == "addr").get.tpe == addrTpe)
+    assert(w_tpe.fields.find(_.name == "data").get.tpe == dataTpe)
   }
 
   it should "infer different instances of the same module to have the same width variable" in {
