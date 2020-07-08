@@ -84,33 +84,46 @@ object InferTypesFlowsAndKinds extends Pass {
     * @note Kind only matters at the Reference leaf nodes.
     */
   private def onExpr(f: Flow, fieldTrace: List[String] = List())(expr: Expression)(implicit lut: Lookup): Expression = {
-    val subTrace = expr match {
-      case SubField(_, name, _, _) => name +: fieldTrace
-      case _ => fieldTrace
-    }
-    expr.map(onExpr(f, subTrace)) match {
+    //println(s"onExpr($f, $fieldTrace)(${expr.serialize} : ${expr.tpe.serialize})")
+    expr match {
       case e: Reference =>
         val base = lut.reference(e.name, f)
         if(fieldTrace.nonEmpty && isFlipped(base.tpe, fieldTrace)) {
           lut.reference(e.name, flip(f))
         } else { base }
       case e: SubField =>
-        val fieldType = Utils.field_type(e.expr.tpe, e.name)
+        val subExpr = onExpr(f, e.name +: fieldTrace)(e.expr)
+        val fieldType = Utils.field_type(subExpr.tpe, e.name)
         val flow = if(fieldTrace.nonEmpty && isFlipped(fieldType, fieldTrace)) { flip(f) } else { f }
-        lut.subField(e.expr, e.name, flow)
+        lut.subField(subExpr, e.name, flow)
       case e: SubIndex =>
-        val dataType = Utils.sub_type(e.expr.tpe)
+        val subExpr = onExpr(f, fieldTrace)(e.expr)
+        val dataType = Utils.sub_type(subExpr.tpe)
         val flow = if(fieldTrace.nonEmpty && isFlipped(dataType, fieldTrace)) { flip(f) } else { f }
-        lut.subIndex(e.expr, e.value, flow)
+        lut.subIndex(subExpr, e.value, flow)
       case e: SubAccess =>
-        val dataType = Utils.sub_type(e.expr.tpe)
+        val subExpr = onExpr(f, fieldTrace)(e.expr)
+        // the index expression starts with a new trace and as a Source
+        val indexExpr = onExpr(SourceFlow, List())(e.index)
+        val dataType = Utils.sub_type(subExpr.tpe)
         val flow = if(fieldTrace.nonEmpty && isFlipped(dataType, fieldTrace)) { flip(f) } else { f }
-        lut.subAccess(e.expr, e.index, flow)
+        lut.subAccess(subExpr, indexExpr, flow)
       // type inference for non-reference expressions
-      case e: DoPrim => e.copy(tpe = e.op.propagateType(e))
-      case e: Mux => e.copy(tpe = Utils.mux_type_and_widths(e.tval, e.fval))
-      case e: ValidIf => e.copy(tpe = e.value.tpe)
-      case e: UIntLiteral => e
+      case e: DoPrim =>
+        val argExprs = e.args.map(onExpr(f))
+        e.copy(tpe = e.op.propagateType(e.copy(args = argExprs)))
+      case e: Mux =>
+        val condExpr = onExpr(f)(e.cond)
+        val trueExpr = onExpr(f)(e.tval)
+        val falsExpr = onExpr(f)(e.fval)
+        Mux(condExpr, trueExpr, falsExpr, Utils.mux_type_and_widths(trueExpr, falsExpr))
+      case e: ValidIf =>
+        val subExpr = onExpr(f)(e.value)
+        val condExpr = onExpr(f)(e.cond)
+        ValidIf(condExpr, subExpr, subExpr.tpe)
+      case e: UIntLiteral =>
+        // TODO: what about unknown width in a literal?
+        e
       case e: SIntLiteral => e
     }
   }
