@@ -30,3 +30,5 @@ object CheckHighFormBenchmark extends PassBenchmark(() => CheckHighForm)
 object CheckWidthsBenchmark extends PassBenchmark(() => CheckWidths)
 
 object InferBinaryPointsBenchmark extends PassBenchmark(() => new InferBinaryPoints)
+
+object InferTypesFlowsAndKindsBenchmark extends PassBenchmark(() => InferTypesFlowsAndKinds)
