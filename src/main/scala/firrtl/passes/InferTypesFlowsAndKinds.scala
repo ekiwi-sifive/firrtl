@@ -93,21 +93,17 @@ object InferTypesFlowsAndKinds extends Pass {
         } else { base }
       case e: SubField =>
         val subExpr = onExpr(f, e.name +: fieldTrace)(e.expr)
-        val fieldType = Utils.field_type(subExpr.tpe, e.name)
-        val flow = if(fieldTrace.nonEmpty && isFlipped(fieldType, fieldTrace)) { flip(f) } else { f }
+        val field = subExpr.tpe.asInstanceOf[BundleType].fields.find(_.name == e.name).get
+        val flow = if(field.flip == Flip) { flip(getFlow(subExpr)) } else { getFlow(subExpr) }
         lut.subField(subExpr, e.name, flow)
       case e: SubIndex =>
         val subExpr = onExpr(f, fieldTrace)(e.expr)
-        val dataType = Utils.sub_type(subExpr.tpe)
-        val flow = if(fieldTrace.nonEmpty && isFlipped(dataType, fieldTrace)) { flip(f) } else { f }
-        lut.subIndex(subExpr, e.value, flow)
+        lut.subIndex(subExpr, e.value, getFlow(subExpr))
       case e: SubAccess =>
         val subExpr = onExpr(f, fieldTrace)(e.expr)
         // the index expression starts with a new trace and as a Source
         val indexExpr = onExpr(SourceFlow, List())(e.index)
-        val dataType = Utils.sub_type(subExpr.tpe)
-        val flow = if(fieldTrace.nonEmpty && isFlipped(dataType, fieldTrace)) { flip(f) } else { f }
-        lut.subAccess(subExpr, indexExpr, flow)
+        lut.subAccess(subExpr, indexExpr, getFlow(subExpr))
       // type inference for non-reference expressions
       case e: DoPrim =>
         val argExprs = e.args.map(onExpr(f))
@@ -146,6 +142,14 @@ object InferTypesFlowsAndKinds extends Pass {
       case VectorType(tpe, _) => isFlipped(tpe, fieldTrace)
       case _ => assert(fieldTrace.isEmpty) ; false
     }
+  }
+
+  // Can be safely called on the `expr` field of SubField, SubIndex and SubAccess nodes.
+  private def getFlow(e: Expression): Flow = e match {
+    case Reference(_, _, _, f) => f
+    case SubField(_, _, _, f) => f
+    case SubIndex(_, _, _, f) => f
+    case SubAccess(_, _, _, f) => f
   }
 }
 
