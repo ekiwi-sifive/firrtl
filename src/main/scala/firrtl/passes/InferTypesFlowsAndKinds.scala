@@ -93,7 +93,7 @@ object InferTypesFlowsAndKinds extends Pass {
         } else { base }
       case e: SubField =>
         val subExpr = onExpr(f, e.name +: fieldTrace)(e.expr)
-        val field = subExpr.tpe.asInstanceOf[BundleType].fields.find(_.name == e.name).get
+        val field = lut.findField(subExpr.tpe.asInstanceOf[BundleType], e.name)
         val flow = if(field.flip == Flip) { flip(getFlow(subExpr)) } else { getFlow(subExpr) }
         lut.subField(subExpr, e.name, flow)
       case e: SubIndex =>
@@ -130,14 +130,14 @@ object InferTypesFlowsAndKinds extends Pass {
     case SinkFlow => SourceFlow
   }
 
-  private def isFlipped(tpe: Type, fieldTrace: List[String]): Boolean =
+  private def isFlipped(tpe: Type, fieldTrace: List[String])(implicit lut: Lookup): Boolean =
   // Note: the trace might not reach down all the way to a ground type.
   //       e.g. we could have a bundle with field x.y.z, but we are only interested
   //       in x.y, thus only y is in the trace. The base case is always no flip.
   if(fieldTrace.isEmpty) { false } else {
     tpe match {
-      case BundleType(fields) =>
-        val field = fields.find(_.name == fieldTrace.head).get
+      case b: BundleType =>
+        val field = lut.findField(b, fieldTrace.head)
         isFlipped(field.tpe, fieldTrace.tail) ^ (field.flip == Flip)
       case VectorType(tpe, _) => isFlipped(tpe, fieldTrace)
       case _ => assert(fieldTrace.isEmpty) ; false
@@ -173,7 +173,7 @@ private class Lookup(replace: ReplaceUnknowns, val moduleTypes: Map[String, Type
   def reference(name: String, flow: Flow): Reference = refs(flow)(name)
   def subField(expr: Expression, name: String, flow: Flow): SubField =
     fields.getOrElseUpdate(IdAndEqKey(expr, (flow, name)),
-      SubField(expr, name, Utils.field_type(expr.tpe, name), flow))
+      SubField(expr, name, fieldType(expr.tpe, name), flow))
   def subIndex(expr: Expression, index: Int, flow: Flow): SubIndex =
     indices.getOrElseUpdate(IdAndEqKey(expr, (flow, index)),
       SubIndex(expr, index, Utils.sub_type(expr.tpe), flow))
@@ -183,6 +183,13 @@ private class Lookup(replace: ReplaceUnknowns, val moduleTypes: Map[String, Type
 
   // Expose the replace type functionality in order to handle the DefMemory special case.
   def replaceUnknowns(tpe: Type): Type = replace(tpe)
+
+  // Field cache to reduce lookup from O(n) to O(1)
+  def findField(tpe: BundleType, name: String): Field =
+    bundleFields.getOrElseUpdate(IdKey(tpe), tpe.fields.map(f => f.name -> f).toMap)(name)
+  private val bundleFields = mutable.HashMap[IdKey[BundleType], Map[String, Field]]()
+  private def fieldType(tpe: Type, name: String): Type =
+    findField(tpe.asInstanceOf[BundleType], name).tpe
 
   // Remember expressions in order to ensure that objects are interned as much as possible.
   private val fields = mutable.HashMap[IdAndEqKey[Expression, (Flow, String)], SubField]()
