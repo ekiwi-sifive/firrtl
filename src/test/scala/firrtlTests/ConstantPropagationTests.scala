@@ -11,9 +11,7 @@ import firrtl.annotations.Annotation
 class ConstantPropagationSpec extends FirrtlFlatSpec {
   val transforms: Seq[Transform] = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       new ConstantPropagation)
   protected def exec(input: String, annos: Seq[Annotation] = Nil) = {

@@ -153,7 +153,7 @@ class RemoveWires extends Transform with DependencyAPIMigration {
 
   /* @todo move ResolveKinds outside */
   private val cleanup = Seq(
-    passes.ResolveKinds
+    passes.InferTypesFlowsAndKinds
   )
 
   def execute(state: CircuitState): CircuitState = {

@@ -9,9 +9,7 @@ import firrtl.testutils._
 class ReplaceAccessesSpec extends FirrtlFlatSpec {
   val transforms = Seq(
     ToWorkingIR,
-    ResolveKinds,
-    InferTypes,
-    ResolveFlows,
+    InferTypesFlowsAndKinds,
     new InferWidths,
     ReplaceAccesses)
   protected def exec(input: String) = {

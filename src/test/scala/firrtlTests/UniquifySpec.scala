@@ -16,8 +16,7 @@ class UniquifySpec extends FirrtlFlatSpec {
   private def transforms = Seq(
     ToWorkingIR,
     CheckHighForm,
-    ResolveKinds,
-    InferTypes,
+    InferTypesFlowsAndKinds,
     Uniquify
   )
 

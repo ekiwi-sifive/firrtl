@@ -164,9 +164,7 @@ class InferReadWrite extends Transform
   def transforms = Seq(
     InferReadWritePass,
     CheckInitialization,
-    InferTypes,
-    ResolveKinds,
-    ResolveFlows
+    InferTypesFlowsAndKinds
   )
   def execute(state: CircuitState): CircuitState = {
     val runTransform = state.annotations.contains(InferReadWriteAnnotation)

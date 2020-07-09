@@ -23,9 +23,7 @@ class ClockListTests extends FirrtlFlatSpec {
 
   def passes = Seq(
     ToWorkingIR,
-    ResolveKinds,
-    InferTypes,
-    ResolveFlows,
+    InferTypesFlowsAndKinds,
     new InferWidths
   )
 

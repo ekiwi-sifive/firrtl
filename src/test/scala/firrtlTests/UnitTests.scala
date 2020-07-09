@@ -34,8 +34,7 @@ class UnitTests extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
       PullMuxes)
     val input =
@@ -53,8 +52,7 @@ class UnitTests extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -73,8 +71,7 @@ class UnitTests extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
      """circuit Unit :
@@ -95,10 +92,8 @@ class UnitTests extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       ExpandConnects)
     val input =
      """circuit Unit :
@@ -134,8 +129,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Emitting a nested expression" should "throw an exception" in {
     val passes = Seq(
       ToWorkingIR,
-      InferTypes,
-      ResolveKinds)
+      InferTypesFlowsAndKinds)
     intercept[PassException] {
       val c = Parser.parse(splitExpTestCode.split("\n").toIterator)
       val c2 = passes.foldLeft(c)((c, p) => p run c)
@@ -148,7 +142,7 @@ class UnitTests extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       SplitExpressions,
-      InferTypes)
+      InferTypesFlowsAndKinds)
     val c = Parser.parse(splitExpTestCode.split("\n").toIterator)
     val c2 = passes.foldLeft(c)((c, p) => p run c)
       val writer = new StringWriter()
@@ -158,9 +152,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Simple compound expressions" should "be split" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       SplitExpressions
     )
@@ -182,9 +174,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Smaller widths" should "be explicitly padded" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       PadWidths
     )
@@ -203,9 +193,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Indexes into sub-accesses" should "be dealt with" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       PullMuxes,
       ExpandConnects,
@@ -243,9 +231,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Oversized bit select" should "throw an exception" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths)
     val input =
@@ -262,9 +248,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Oversized head select" should "throw an exception" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths)
     val input =
@@ -281,9 +265,7 @@ class UnitTests extends FirrtlFlatSpec {
   "zero head select" should "return an empty module" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths,
       new DeadCodeElimination)
@@ -301,9 +283,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Oversized tail select" should "throw an exception" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths)
     val input =
@@ -320,9 +300,7 @@ class UnitTests extends FirrtlFlatSpec {
   "max tail select" should "return an empty module" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths,
       new DeadCodeElimination)
@@ -340,8 +318,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Partial connecting incompatable types" should "throw an exception" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -429,9 +406,7 @@ class UnitTests extends FirrtlFlatSpec {
   "Out of bound accesses" should "be invalid" in {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       PullMuxes,
       ExpandConnects,

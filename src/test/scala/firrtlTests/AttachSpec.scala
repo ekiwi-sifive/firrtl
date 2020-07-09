@@ -297,8 +297,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -317,8 +316,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -336,8 +334,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -360,8 +357,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -379,8 +375,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """circuit Unit :
@@ -404,8 +399,7 @@ class AttachAnalogSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
       new InferWidths,
       CheckWidths)

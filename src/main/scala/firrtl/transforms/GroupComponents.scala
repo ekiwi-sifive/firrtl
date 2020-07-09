@@ -4,7 +4,7 @@ import firrtl._
 import firrtl.Mappers._
 import firrtl.ir._
 import firrtl.annotations.{Annotation, ComponentName}
-import firrtl.passes.{InferTypes, LowerTypes, ResolveKinds}
+import firrtl.passes.{InferTypes, InferTypesFlowsAndKinds, LowerTypes, ResolveKinds}
 import firrtl.graph.MutableDiGraph
 import firrtl.stage.Forms
 
@@ -53,7 +53,7 @@ class GroupComponents extends Transform with DependencyAPIMigration {
   override def optionalPrerequisiteOf = Forms.MidEmitters
 
   override def invalidates(a: Transform): Boolean = a match {
-    case InferTypes | ResolveKinds => true
+    case InferTypes | ResolveKinds | InferTypesFlowsAndKinds => true
     case _                         => false
   }
 

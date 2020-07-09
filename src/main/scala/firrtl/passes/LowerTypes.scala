@@ -30,7 +30,7 @@ object LowerTypes extends Transform with DependencyAPIMigration {
   override def optionalPrerequisiteOf = Seq.empty
 
   override def invalidates(a: Transform): Boolean = a match {
-    case ResolveKinds | InferTypes | ResolveFlows | _: InferWidths => true
+    case ResolveKinds | InferTypes | ResolveFlows | InferTypesFlowsAndKinds | _: InferWidths => true
     case _ => false
   }
 

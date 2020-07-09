@@ -29,10 +29,8 @@ class InferWidthsWithAnnosSpec extends FirrtlFlatSpec {
     val transforms = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       new InferWidths,
       CheckWidths)
 
@@ -58,10 +56,8 @@ class InferWidthsWithAnnosSpec extends FirrtlFlatSpec {
     val transforms = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       new InferWidths,
       CheckWidths)
 
@@ -101,10 +97,8 @@ class InferWidthsWithAnnosSpec extends FirrtlFlatSpec {
     val transforms = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       new InferWidths,
       CheckWidths)
 
@@ -151,9 +145,7 @@ class InferWidthsWithAnnosSpec extends FirrtlFlatSpec {
   "InferWidthsWithAnnos" should "work with WiringTransform" in {
     def transforms() = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       CheckWidths,
       new WiringTransform,

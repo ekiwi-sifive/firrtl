@@ -113,10 +113,8 @@ object InferResets {
 class InferResets extends Transform with DependencyAPIMigration {
 
   override def prerequisites =
-    Seq( Dependency(passes.ResolveKinds),
-         Dependency(passes.InferTypes),
+    Seq( Dependency(passes.InferTypesFlowsAndKinds),
          Dependency(passes.Uniquify),
-         Dependency(passes.ResolveFlows),
          Dependency[passes.InferWidths] ) ++ stage.Forms.WorkingIR
 
   override def invalidates(a: Transform): Boolean = a match {
@@ -313,7 +311,7 @@ class InferResets extends Transform with DependencyAPIMigration {
   }
 
   private def fixupPasses: Seq[Pass] = Seq(
-    InferTypes
+    passes.InferTypesFlowsAndKinds
   )
 
   def execute(state: CircuitState): CircuitState = {

@@ -4,7 +4,7 @@ package firrtlTests
 
 import firrtl._
 import firrtl.annotations._
-import firrtl.passes.{InlineAnnotation, InlineInstances, ResolveKinds}
+import firrtl.passes.{InferTypesFlowsAndKinds, InlineAnnotation, InlineInstances, ResolveKinds}
 import firrtl.transforms.NoCircuitDedupAnnotation
 import firrtl.testutils._
 import firrtl.testutils.FirrtlCheckers._
@@ -558,7 +558,7 @@ class InlineInstancesTests extends LowTransformSpec {
         |    b <= a""".stripMargin
 
     val state = CircuitState(parse(input), ChirrtlForm, Seq(inline("Inline")))
-    val manager = new TransformManager(Seq(Dependency[InlineInstances], Dependency(ResolveKinds)))
+    val manager = new TransformManager(Seq(Dependency[InlineInstances], Dependency(InferTypesFlowsAndKinds)))
     val result = manager.execute(state)
 
     result shouldNot containTree { case WRef("i_a", _, PortKind, _) => true }

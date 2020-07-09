@@ -13,10 +13,8 @@ import firrtl.options.Dependency
 class InferBinaryPoints extends Pass {
 
   override def prerequisites =
-    Seq( Dependency(ResolveKinds),
-         Dependency(InferTypes),
-         Dependency(Uniquify),
-         Dependency(ResolveFlows) )
+    Seq( Dependency(InferTypesFlowsAndKinds),
+         Dependency(Uniquify) )
 
   override def optionalPrerequisiteOf = Seq.empty
 
@@ -107,7 +105,7 @@ class InferBinaryPoints extends Pass {
     c.modules foreach (m => m map addStmtConstraints(ct.module(m.name)))
     c.modules foreach (_.ports foreach {p => addDecConstraints(p.tpe)})
     constraintSolver.solve()
-    InferTypes.run(c.copy(modules = c.modules map (_
+    InferTypesFlowsAndKinds.run(c.copy(modules = c.modules map (_
       map fixPort
       map fixStmt)))
   }

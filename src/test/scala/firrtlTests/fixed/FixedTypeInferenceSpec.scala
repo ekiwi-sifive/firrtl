@@ -23,10 +23,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -53,10 +51,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -83,10 +79,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -109,10 +103,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -135,10 +127,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -161,10 +151,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -187,10 +175,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -213,10 +199,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -253,10 +237,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -279,10 +261,8 @@ class FixedTypeInferenceSpec extends FirrtlFlatSpec {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths,

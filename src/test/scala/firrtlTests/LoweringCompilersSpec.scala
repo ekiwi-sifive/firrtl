@@ -43,13 +43,10 @@ class LoweringCompilersSpec extends FlatSpec with Matchers {
     case _: IRToWorkingIR => Seq(firrtl.passes.ToWorkingIR)
     case _: ResolveAndCheck => Seq(
       firrtl.passes.CheckHighForm,
-      firrtl.passes.ResolveKinds,
-      firrtl.passes.InferTypes,
+      firrtl.passes.InferTypesFlowsAndKinds,
       firrtl.passes.CheckTypes,
       firrtl.passes.Uniquify,
-      firrtl.passes.ResolveKinds,
-      firrtl.passes.InferTypes,
-      firrtl.passes.ResolveFlows,
+      firrtl.passes.InferTypesFlowsAndKinds,
       firrtl.passes.CheckFlows,
       new firrtl.passes.InferBinaryPoints,
       new firrtl.passes.TrimIntervals,
@@ -65,25 +62,21 @@ class LoweringCompilersSpec extends FlatSpec with Matchers {
       firrtl.passes.Uniquify,
       firrtl.passes.ExpandWhens,
       firrtl.passes.CheckInitialization,
-      firrtl.passes.ResolveKinds,
-      firrtl.passes.InferTypes,
+      firrtl.passes.InferTypesFlowsAndKinds,
       firrtl.passes.CheckTypes,
-      firrtl.passes.ResolveFlows,
       new firrtl.passes.InferWidths,
       firrtl.passes.CheckWidths,
       new firrtl.passes.RemoveIntervals,
       firrtl.passes.ConvertFixedToSInt,
       firrtl.passes.ZeroWidth,
-      firrtl.passes.InferTypes)
+      firrtl.passes.InferTypesFlowsAndKinds)
     case _: MiddleFirrtlToLowFirrtl => Seq(
       firrtl.passes.LowerTypes,
-      firrtl.passes.ResolveKinds,
-      firrtl.passes.InferTypes,
-      firrtl.passes.ResolveFlows,
+      firrtl.passes.InferTypesFlowsAndKinds,
       new firrtl.passes.InferWidths,
       firrtl.passes.Legalize,
       firrtl.transforms.RemoveReset,
-      firrtl.passes.ResolveFlows,
+      firrtl.passes.InferTypesFlowsAndKinds,
       new firrtl.transforms.CheckCombLoops,
       new checks.CheckResets,
       new firrtl.transforms.RemoveWires)
@@ -157,11 +150,7 @@ class LoweringCompilersSpec extends FlatSpec with Matchers {
   it should "replicate the old order" in {
     val tm = new TransformManager(Forms.MidForm, Forms.Deduped)
     val patches = Seq(
-      Add(4, Seq(Dependency(firrtl.passes.ResolveFlows))),
-      Add(5, Seq(Dependency(firrtl.passes.ResolveKinds))),
-      Add(6, Seq(Dependency(firrtl.passes.ResolveKinds),
-                 Dependency(firrtl.passes.InferTypes),
-                 Dependency(firrtl.passes.ResolveFlows))),
+      Add(6, Seq(Dependency(firrtl.passes.InferTypesFlowsAndKinds))),
       Del(7),
       Del(8),
       Add(7, Seq(Dependency[firrtl.passes.ExpandWhensAndCheck])),
@@ -171,8 +160,7 @@ class LoweringCompilersSpec extends FlatSpec with Matchers {
       Add(12, Seq(Dependency(firrtl.passes.ResolveFlows),
                   Dependency[firrtl.passes.InferWidths])),
       Del(14),
-      Add(15, Seq(Dependency(firrtl.passes.ResolveKinds),
-                  Dependency(firrtl.passes.InferTypes))),
+      Add(15, Seq(Dependency(firrtl.passes.InferTypesFlowsAndKinds))),
       // TODO
       Add(17, Seq(Dependency[firrtl.transforms.formal.AssertSubmoduleAssumptions]))
     )

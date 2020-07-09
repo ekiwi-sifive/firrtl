@@ -3,9 +3,9 @@
 package firrtlTests
 
 import org.scalatest._
-import firrtl.{Parser, CircuitState, UnknownForm, Transform}
+import firrtl.{CircuitState, Parser, Transform, UnknownForm}
 import firrtl.ir.Circuit
-import firrtl.passes.{Pass,ToWorkingIR,CheckHighForm,ResolveKinds,InferTypes,CheckTypes,PassException,InferWidths,CheckWidths,ResolveFlows,CheckFlows}
+import firrtl.passes.{CheckFlows, CheckHighForm, CheckTypes, CheckWidths, InferTypesFlowsAndKinds, InferWidths, Pass, PassException, ResolveFlows, ResolveKinds, ToWorkingIR}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -175,10 +175,8 @@ class CheckSpec extends AnyFlatSpec with Matchers {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes,
-      ResolveFlows,
       CheckFlows,
       new InferWidths,
       CheckWidths)
@@ -216,8 +214,7 @@ class CheckSpec extends AnyFlatSpec with Matchers {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """
@@ -244,8 +241,7 @@ class CheckSpec extends AnyFlatSpec with Matchers {
     val passes = Seq(
       ToWorkingIR,
       CheckHighForm,
-      ResolveKinds,
-      InferTypes,
+      InferTypesFlowsAndKinds,
       CheckTypes)
     val input =
       """

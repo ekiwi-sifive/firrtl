@@ -23,10 +23,8 @@ import firrtl.Transform
 class TrimIntervals extends Pass {
 
   override def prerequisites =
-    Seq( Dependency(ResolveKinds),
-         Dependency(InferTypes),
+    Seq( Dependency(InferTypesFlowsAndKinds),
          Dependency(Uniquify),
-         Dependency(ResolveFlows),
          Dependency[InferBinaryPoints] )
 
   override def optionalPrerequisiteOf = Seq.empty
@@ -35,7 +33,7 @@ class TrimIntervals extends Pass {
 
   def run(c: Circuit): Circuit = {
     // Open -> closed
-    val firstPass = InferTypes.run(c map replaceModuleInterval)
+    val firstPass = InferTypesFlowsAndKinds.run(c map replaceModuleInterval)
     // Align binary points and adjust range accordingly (loss of precision changes range)
     firstPass map alignModuleBP
   }

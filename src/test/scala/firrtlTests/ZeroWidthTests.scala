@@ -9,9 +9,7 @@ import firrtl.testutils._
 class ZeroWidthTests extends FirrtlFlatSpec {
   def transforms = Seq(
       ToWorkingIR,
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
+      InferTypesFlowsAndKinds,
       new InferWidths,
       ZeroWidth)
   private def exec (input: String) = {

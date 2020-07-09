@@ -9,9 +9,7 @@ import firrtl.testutils.FirrtlFlatSpec
 class ZeroLengthVecsSpec extends FirrtlFlatSpec {
   val transforms = Seq(
     ToWorkingIR,
-    ResolveKinds,
-    InferTypes,
-    ResolveFlows,
+    InferTypesFlowsAndKinds,
     new InferWidths,
     ZeroLengthVecs,
     CheckTypes)

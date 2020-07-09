@@ -10,10 +10,8 @@ class CheckInitializationSpec extends FirrtlFlatSpec {
   private val passes = Seq(
      ToWorkingIR,
      CheckHighForm,
-     ResolveKinds,
-     InferTypes,
+     InferTypesFlowsAndKinds,
      CheckTypes,
-     ResolveFlows,
      CheckFlows,
      new InferWidths,
      CheckWidths,
@@ -22,7 +20,7 @@ class CheckInitializationSpec extends FirrtlFlatSpec {
      RemoveAccesses,
      ExpandWhens,
      CheckInitialization,
-     InferTypes
+     InferTypesFlowsAndKinds
   )
   "Missing assignment in consequence branch" should "trigger a PassException" in {
     val input =

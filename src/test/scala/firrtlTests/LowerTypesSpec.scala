@@ -12,10 +12,8 @@ class LowerTypesSpec extends FirrtlFlatSpec {
   private def transforms = Seq(
     ToWorkingIR,
     CheckHighForm,
-    ResolveKinds,
-    InferTypes,
+    InferTypesFlowsAndKinds,
     CheckTypes,
-    ResolveFlows,
     CheckFlows,
     new InferWidths,
     CheckWidths,
@@ -26,9 +24,7 @@ class LowerTypesSpec extends FirrtlFlatSpec {
     CheckInitialization,
     Legalize,
     new ConstantPropagation,
-    ResolveKinds,
-    InferTypes,
-    ResolveFlows,
+    InferTypesFlowsAndKinds,
     new InferWidths,
     LowerTypes)
 
