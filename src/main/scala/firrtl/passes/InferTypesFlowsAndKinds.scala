@@ -29,7 +29,7 @@ object InferTypesFlowsAndKinds extends Pass {
     // We need to replace all unknown widths and bounds here in order to ensure that
     // they will be replaced with the same variable for all instances.
     val noUnknownPorts = c.mapModule(m => m.mapPort(p => p.copy(tpe = replaceUnknowns(p.tpe))))
-    val moduleTypes = noUnknownPorts.modules.map(m => m.name -> replaceUnknowns(Utils.module_type(m))).toMap
+    val moduleTypes = noUnknownPorts.modules.map(m => m.name -> Utils.module_type(m)).toMap
 
     noUnknownPorts.mapModule(onModule(replaceUnknowns, moduleTypes))
   }
@@ -106,16 +106,16 @@ object InferTypesFlowsAndKinds extends Pass {
         lut.subAccess(subExpr, indexExpr, getFlow(subExpr))
       // type inference for non-reference expressions
       case e: DoPrim =>
-        val argExprs = e.args.map(onExpr(f))
-        e.copy(tpe = e.op.propagateType(e.copy(args = argExprs)))
+        val eWithArgs = e.copy(args = e.args.map(onExpr(SourceFlow)))
+        eWithArgs.copy(tpe = e.op.propagateType(eWithArgs))
       case e: Mux =>
-        val condExpr = onExpr(f)(e.cond)
-        val trueExpr = onExpr(f)(e.tval)
-        val falsExpr = onExpr(f)(e.fval)
+        val condExpr = onExpr(SourceFlow)(e.cond)
+        val trueExpr = onExpr(SourceFlow)(e.tval)
+        val falsExpr = onExpr(SourceFlow)(e.fval)
         Mux(condExpr, trueExpr, falsExpr, Utils.mux_type_and_widths(trueExpr, falsExpr))
       case e: ValidIf =>
-        val subExpr = onExpr(f)(e.value)
-        val condExpr = onExpr(f)(e.cond)
+        val subExpr = onExpr(SourceFlow)(e.value)
+        val condExpr = onExpr(SourceFlow)(e.cond)
         ValidIf(condExpr, subExpr, subExpr.tpe)
       case e: UIntLiteral =>
         // TODO: what about unknown width in a literal?
