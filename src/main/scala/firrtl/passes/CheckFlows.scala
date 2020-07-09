@@ -10,7 +10,7 @@ import firrtl.options.Dependency
 
 object CheckFlows extends Pass {
 
-  override def prerequisites = Dependency(passes.ResolveFlows) +: firrtl.stage.Forms.WorkingIR
+  override def prerequisites = Dependency(passes.InferTypesFlowsAndKinds) +: firrtl.stage.Forms.WorkingIR
 
   override def optionalPrerequisiteOf =
     Seq( Dependency[passes.InferBinaryPoints],

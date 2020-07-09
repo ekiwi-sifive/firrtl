@@ -31,10 +31,8 @@ object Forms {
          Dependency(passes.CheckWidths) )
 
   val Resolved: Seq[TransformDependency] = WorkingIR ++ Checks ++
-    Seq( Dependency(passes.ResolveKinds),
-         Dependency(passes.InferTypes),
+    Seq( Dependency(passes.InferTypesFlowsAndKinds),
          Dependency(passes.Uniquify),
-         Dependency(passes.ResolveFlows),
          Dependency[passes.InferBinaryPoints],
          Dependency[passes.TrimIntervals],
          Dependency[passes.InferWidths],

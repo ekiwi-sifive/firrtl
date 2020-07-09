@@ -14,7 +14,7 @@ import MemPortUtils.memType
 
 /** Resolve name collisions that would occur in [[LowerTypes]]
   *
-  *  @note Must be run after [[InferTypes]] because [[ir.DefNode]]s need type
+  *  @note Must be run after [[InferTypesFlowsAndKinds]] because [[ir.DefNode]]s need type
   *  @example
   *  {{{
   *      wire a = { b, c }[2]
@@ -35,11 +35,10 @@ import MemPortUtils.memType
 object Uniquify extends Transform with DependencyAPIMigration {
 
   override def prerequisites =
-    Seq( Dependency(ResolveKinds),
-         Dependency(InferTypes) ) ++ firrtl.stage.Forms.WorkingIR
+    Seq( Dependency(InferTypesFlowsAndKinds) ) ++ firrtl.stage.Forms.WorkingIR
 
   override def invalidates(a: Transform): Boolean = a match {
-    case ResolveKinds | InferTypes => true
+    case ResolveKinds | InferTypes | InferTypesFlowsAndKinds => true
     case _ => false
   }
 

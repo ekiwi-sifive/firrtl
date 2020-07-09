@@ -65,10 +65,8 @@ class InferWidths extends Transform
     with DependencyAPIMigration {
 
   override def prerequisites =
-    Seq( Dependency(passes.ResolveKinds),
-         Dependency(passes.InferTypes),
+    Seq( Dependency(passes.InferTypesFlowsAndKinds),
          Dependency(passes.Uniquify),
-         Dependency(passes.ResolveFlows),
          Dependency[passes.InferBinaryPoints],
          Dependency[passes.TrimIntervals] ) ++ firrtl.stage.Forms.WorkingIR
   override def invalidates(a: Transform) = false
@@ -182,7 +180,7 @@ class InferWidths extends Transform
     val ct = CircuitTarget(c.main)
     c.modules foreach ( m => m map addStmtConstraints(ct.module(m.name)))
     constraintSolver.solve()
-    val ret = InferTypes.run(c.copy(modules = c.modules map (_
+    val ret = InferTypesFlowsAndKinds.run(c.copy(modules = c.modules map (_
                                                                map fixPort
                                                                map fixStmt)))
     constraintSolver.clear()

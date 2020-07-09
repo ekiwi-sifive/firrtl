@@ -25,7 +25,7 @@ object SplitExpressions extends Pass {
          Dependency[VerilogEmitter] )
 
   override def invalidates(a: Transform) = a match {
-    case ResolveKinds => true
+    case ResolveKinds | InferTypesFlowsAndKinds => true
     case _            => false
   }
 

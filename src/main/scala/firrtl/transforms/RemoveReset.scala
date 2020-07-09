@@ -26,7 +26,7 @@ object RemoveReset extends Transform with DependencyAPIMigration {
   override def optionalPrerequisiteOf = Seq.empty
 
   override def invalidates(a: Transform): Boolean = a match {
-    case firrtl.passes.ResolveFlows => true
+    case firrtl.passes.ResolveFlows | firrtl.passes.InferTypesFlowsAndKinds => true
     case _                          => false
   }
 

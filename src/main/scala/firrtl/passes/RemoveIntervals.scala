@@ -47,7 +47,7 @@ class RemoveIntervals extends Pass {
 
   override def invalidates(transform: Transform): Boolean = {
     transform match {
-      case InferTypes | ResolveKinds => true
+      case InferTypes | ResolveKinds | InferTypesFlowsAndKinds => true
       case _ => false
     }
   }
