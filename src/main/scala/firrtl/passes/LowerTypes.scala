@@ -29,10 +29,7 @@ object LowerTypes extends Transform with DependencyAPIMigration {
 
   override def optionalPrerequisiteOf = Seq.empty
 
-  override def invalidates(a: Transform): Boolean = a match {
-    case ResolveKinds | InferTypes | ResolveFlows | _: InferWidths => true
-    case _ => false
-  }
+  override def invalidates(a: Transform): Boolean = false
 
   /** Delimiter used in lowering names */
   val delim = "_"
@@ -41,9 +38,9 @@ object LowerTypes extends Transform with DependencyAPIMigration {
     * @return Lowered name of e
     */
   def loweredName(e: Expression): String = e match {
-    case e: WRef => e.name
-    case e: WSubField => s"${loweredName(e.expr)}$delim${e.name}"
-    case e: WSubIndex => s"${loweredName(e.expr)}$delim${e.value}"
+    case e: Reference => e.name
+    case e: SubField => s"${loweredName(e.expr)}$delim${e.name}"
+    case e: SubIndex => s"${loweredName(e.expr)}$delim${e.value}"
   }
   def loweredName(s: Seq[String]): String = s mkString delim
   def renameExps(renames: RenameMap, n: String, t: Type, root: String): Seq[String] =
@@ -66,6 +63,29 @@ object LowerTypes extends Transform with DependencyAPIMigration {
       renames.rename(root + e.serialize, subNames)
       subNames
   }
+
+  def renameExpsGetTypes(renames: RenameMap, n: String, t: Type, root: String): Seq[(String, Type)] =
+    renameExpsGetTypes(renames, WRef(n, t, ExpKind, UnknownFlow), root)
+  def renameExpsGetTypes(renames: RenameMap, n: String, t: Type): Seq[(String, Type)] =
+    renameExpsGetTypes(renames, WRef(n, t, ExpKind, UnknownFlow), "")
+  def renameExpsGetTypes(renames: RenameMap, e: Expression, root: String): Seq[(String, Type)] = e.tpe match {
+    case (_: GroundType) =>
+      val name = root + loweredName(e)
+      renames.rename(root + e.serialize, name)
+      Seq((name, e.tpe))
+    case (t: BundleType) =>
+      val subNames = t.fields.flatMap { f =>
+        renameExpsGetTypes(renames, WSubField(e, f.name, f.tpe, times(flow(e), f.flip)), root)
+      }
+      renames.rename(root + e.serialize, subNames.map(_._1))
+      subNames
+    case (t: VectorType) =>
+      val subNames = (0 until t.size).flatMap { i => renameExpsGetTypes(renames, WSubIndex(e, i, t.tpe,flow(e)), root) }
+      renames.rename(root + e.serialize, subNames.map(_._1))
+      subNames
+  }
+
+
 
   private def renameMemExps(renames: RenameMap, e: Expression, portAndField: Expression): Seq[String] = e.tpe match {
     case (_: GroundType) =>
@@ -144,8 +164,9 @@ object LowerTypes extends Transform with DependencyAPIMigration {
     }
   }
 
-  def lowerTypesExp(memDataTypeMap: MemDataTypeMap,
-      info: Info, mname: String)(e: Expression): Expression = e match {
+  // scalastyle:off
+
+  def lowerTypesExp(memDataTypeMap: MemDataTypeMap, info: Info, mname: String)(e: Expression): Expression = e match {
     case e: WRef => e
     case (_: WSubField | _: WSubIndex) => kind(e) match {
       case InstanceKind =>
@@ -176,7 +197,7 @@ object LowerTypes extends Transform with DependencyAPIMigration {
           val exps = create_exps(s.name, s.tpe)
           val names = exps map loweredName
           renameExps(renames, s.name, s.tpe)
-          Block((exps zip names) map { case (e, n) =>
+          Block((exps.zip(names)) map { case (e, n) =>
             DefWire(s.info, n, e.tpe)
           })
       }
@@ -290,6 +311,10 @@ object LowerTypes extends Transform with DependencyAPIMigration {
     }
   }
 
+  private def lowerModulePorts(m: DefModule)(implicit lut: Lookup): DefModule = {
+    lut.declareModule(m)
+  }
+
   def execute(state: CircuitState): CircuitState = {
     // remember which memories need to be initialized, for these memories, lowering non-ground types is not supported
     val initializedMems = state.annotations.collect{
@@ -298,7 +323,46 @@ object LowerTypes extends Transform with DependencyAPIMigration {
     val c = state.circuit
     val renames = RenameMap()
     renames.setCircuit(c.main)
-    val result = c copy (modules = c.modules map lowerTypes(renames, initializedMems))
+    val result = c copy (modules = c.modules.map(lowerTypes(renames, initializedMems)))
     CircuitState(result, outputForm, state.annotations, Some(renames))
   }
+}
+
+// stores the lowered references and types
+private class Lookup() {
+  import Lookup._
+
+
+  def declareModule(m: DefModule): Seq[Port] = {
+
+
+  }
+
+  def declareInstance(name: String, module: String): Type = {
+
+  }
+
+  /** use for Node, Reg and Wire */
+  def declareReference(name: String, tpe: Type, kind: Kind): Seq[(String, Type)] = {
+    val namesAndTypes = LowerTypes.renameExpsGetTypes(renames, name, tpe)
+    namesAndTypes.foreach { case (subName, subType) =>
+      sources(subName) = Reference(subName, subType, kind, SourceFlow)
+      sinks(subName) = Reference(subName, subType, kind, SinkFlow)
+    }
+    namesAndTypes
+  }
+
+  def getReference(name: String, flow: Flow): Reference = flow match {
+    case SourceFlow => sources(name)
+    case SinkFlow => sinks(name)
+  }
+
+  private val moduleTypes = mutable.HashMap[String, BundleType]()
+  private val sources = mutable.HashMap[String, Reference]()
+  private val sinks = mutable.HashMap[String, Reference]()
+  private val renames = RenameMap()
+}
+
+private object Lookup {
+
 }

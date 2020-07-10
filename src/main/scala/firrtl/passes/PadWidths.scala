@@ -48,6 +48,7 @@ object PadWidths extends Pass {
         e.tpe match {
           case UIntType(_) => e2
           case SIntType(_) => DoPrim(AsSInt, Seq(e2), Seq.empty, SIntType(IntWidth(i)))
+          case other => throw new RuntimeException(s"${e.serialize} : ${e.tpe.serialize}")
         }
       case _ => e
     }
