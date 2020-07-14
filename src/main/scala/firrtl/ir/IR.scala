@@ -141,6 +141,10 @@ abstract class Expression extends FirrtlNode {
   def foreachWidth(f: Width => Unit): Unit
 }
 
+sealed trait ExpressionWithFlow extends Expression {
+  def flow: Flow
+}
+
 object Reference {
   /** Creates a Reference from a Wire */
   def apply(wire: DefWire): Reference = Reference(wire.name, wire.tpe, WireKind, UnknownFlow)
@@ -157,7 +161,7 @@ object Reference {
 }
 
 case class Reference(name: String, tpe: Type = UnknownType, kind: Kind = UnknownKind, flow: Flow = UnknownFlow)
-    extends Expression with HasName {
+    extends ExpressionWithFlow with HasName {
   def serialize: String = name
   def mapExpr(f: Expression => Expression): Expression = this
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
@@ -168,7 +172,7 @@ case class Reference(name: String, tpe: Type = UnknownType, kind: Kind = Unknown
 }
 
 case class SubField(expr: Expression, name: String, tpe: Type = UnknownType, flow: Flow = UnknownFlow)
-    extends Expression with HasName {
+    extends ExpressionWithFlow with HasName {
   def serialize: String = s"${expr.serialize}.$name"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
@@ -179,7 +183,7 @@ case class SubField(expr: Expression, name: String, tpe: Type = UnknownType, flo
 }
 
 case class SubIndex(expr: Expression, value: Int, tpe: Type, flow: Flow = UnknownFlow)
-    extends Expression {
+    extends ExpressionWithFlow {
   def serialize: String = s"${expr.serialize}[$value]"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
@@ -190,7 +194,7 @@ case class SubIndex(expr: Expression, value: Int, tpe: Type, flow: Flow = Unknow
 }
 
 case class SubAccess(expr: Expression, index: Expression, tpe: Type, flow: Flow = UnknownFlow)
-    extends Expression {
+    extends ExpressionWithFlow {
   def serialize: String = s"${expr.serialize}[${index.serialize}]"
   def mapExpr(f: Expression => Expression): Expression = this.copy(expr = f(expr), index = f(index))
   def mapType(f: Type => Type): Expression = this.copy(tpe = f(tpe))
