@@ -288,10 +288,10 @@ class LowerTypesOfMemorySpec extends AnyFlatSpec {
   private val m = CircuitTarget("m").module("m")
   private val mem = m.ref("mem")
   private def lower(name: String, tpe: String, namespace: Set[String],
-                      r: Seq[String] = List("r"), w: Seq[String] = List("w"), depth: Int = 2): Lower = {
+                      r: Seq[String] = List("r"), w: Seq[String] = List("w"), rw: Seq[String] = List(), depth: Int = 2): Lower = {
     val dataType = parseType(tpe)
     val mem = firrtl.ir.DefMemory(firrtl.ir.NoInfo, name, dataType, depth = depth, writeLatency = 1, readLatency = 1,
-      readUnderWrite = firrtl.ir.ReadUnderWrite.Undefined, readers = r, writers = w, readwriters = Seq())
+      readUnderWrite = firrtl.ir.ReadUnderWrite.Undefined, readers = r, writers = w, readwriters = rw)
     val renames = RenameMap()
     val mutableSet = scala.collection.mutable.HashSet[String]() ++ namespace
     val(mems, refs) = DestructTypes.destructMemory(m, mem, mutableSet, renames)
@@ -446,6 +446,45 @@ class LowerTypesOfMemorySpec extends AnyFlatSpec {
       "mem.w.mask.b.c" -> "mem__b_c.w.mask"
     ))
   }
+
+  it should "produce references of correct type for memories with a read/write port" in {
+    val refs = lower("mem", "{ a : UInt<3>, b : { c : UInt<4>} }", Set("mem_a"),
+      r=Seq(), w=Seq(), rw=Seq("rw"), depth = 3).refs
+    val nameToRef = refs.map{case (n,r) => n -> r.serialize}.toSet
+    val nameToType = refs.map{case (n,r) => n -> r.tpe.serialize}.toSet
+
+    assert(nameToRef == Set(
+      // The non "data" or "mask" fields of read and write ports are already of ground type but still do get duplicated.
+      // They will all carry the exact same value, so for a RHS use of the old signal, any of the expanded ones will do.
+      "mem.rw.clk" -> "mem__a.rw.clk", "mem.rw.clk" -> "mem__b_c.rw.clk",
+      "mem.rw.en" -> "mem__a.rw.en", "mem.rw.en" -> "mem__b_c.rw.en",
+      "mem.rw.addr" -> "mem__a.rw.addr", "mem.rw.addr" -> "mem__b_c.rw.addr",
+      "mem.rw.wmode" -> "mem__a.rw.wmode", "mem.rw.wmode" -> "mem__b_c.rw.wmode",
+      // Ground type references to the data or mask field are unique.
+      "mem.rw.rdata.a" -> "mem__a.rw.rdata",
+      "mem.rw.wdata.a" -> "mem__a.rw.wdata",
+      "mem.rw.wmask.a" -> "mem__a.rw.wmask",
+      "mem.rw.rdata.b.c" -> "mem__b_c.rw.rdata",
+      "mem.rw.wdata.b.c" -> "mem__b_c.rw.wdata",
+      "mem.rw.wmask.b.c" -> "mem__b_c.rw.wmask",
+    ))
+
+    assert(nameToType == Set(
+      //
+      "mem.rw.clk" -> "Clock",
+      "mem.rw.en" -> "UInt<1>",
+      "mem.rw.addr" -> "UInt<2>",
+      "mem.rw.wmode" -> "UInt<1>",
+      // Ground type references to the data or mask field are unique.
+      "mem.rw.rdata.a" -> "UInt<3>",
+      "mem.rw.wdata.a" -> "UInt<3>",
+      "mem.rw.wmask.a" -> "UInt<1>",
+      "mem.rw.rdata.b.c" -> "UInt<4>",
+      "mem.rw.wdata.b.c" -> "UInt<4>",
+      "mem.rw.wmask.b.c" -> "UInt<1>",
+    ))
+  }
+
 
   it should "rename references for vector type memories" in {
     val l = lower("mem", "UInt<1>[2]", Set("mem_0"))

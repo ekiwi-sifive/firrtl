@@ -302,7 +302,9 @@ private object DestructTypes {
         val newPortAccess = SubField(newMemReference, port.name, newPortType)
 
         port.tpe.asInstanceOf[BundleType].fields.map { portField =>
-          val isDataOrMaskField = portField.name == "data" || portField.name == "mask"
+          val isDataField = portField.name == "data" || portField.name == "wdata" || portField.name == "rdata"
+          val isMaskField = portField.name == "mask" || portField.name == "wmask"
+          val isDataOrMaskField = isDataField || isMaskField
           val oldFieldRefs = if(memWasRenamed && isDataOrMaskField) {
             // there might have been multiple different fields which now alias to the same lowered field.
             val oldPortFieldBaseRef = oldPortRef.field(portField.name)
@@ -311,7 +313,7 @@ private object DestructTypes {
             List(oldPortRef.field(portField.name))
           }
 
-          val newPortType = if(portField.name == "data") { newMem.dataType } else { portField.tpe }
+          val newPortType = if(isDataField) { newMem.dataType } else { portField.tpe }
           val newPortFieldAccess = SubField(newPortAccess, portField.name, newPortType)
 
           // record renames only for the data field which is the only port field of non-ground type
