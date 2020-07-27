@@ -3,7 +3,7 @@
 package firrtl.passes
 
 import firrtl.analyses.InstanceKeyGraph
-import firrtl.annotations.{CircuitTarget, ModuleTarget, ReferenceTarget}
+import firrtl.annotations.{CircuitTarget, MemoryInitAnnotation, MemoryRandomInitAnnotation, ModuleTarget, ReferenceTarget}
 import firrtl.{CircuitForm, CircuitState, InstanceKind, Kind, MemKind, PortKind, RenameMap, SymbolTable, Transform, UnknownForm, Utils}
 import firrtl.ir._
 import firrtl.options.Dependency
@@ -47,25 +47,37 @@ object NewLowerTypes extends Transform {
   def loweredName(s: Seq[String]): String = s.mkString(delim)
 
   override def execute(state: CircuitState): CircuitState = {
+    // When memories are lowered to ground type, we have to fix the init annotation or error on it.
+    val (memInitAnnos, otherAnnos) = state.annotations.partition {
+      case _: MemoryRandomInitAnnotation => false
+      case _: MemoryInitAnnotation => true
+      case _ => false
+    }
+    val memInitByModule = memInitAnnos.map(_.asInstanceOf[MemoryInitAnnotation]).groupBy(_.target.encapsulatingModule)
+
     val c = CircuitTarget(state.circuit.main)
-    val resultAndRenames = state.circuit.modules.map(onModule(c, _))
+    val resultAndRenames = state.circuit.modules.map(m => onModule(c, m, memInitByModule.getOrElse(m.name, Seq())))
     val result = state.circuit.copy(modules = resultAndRenames.map(_._1))
 
+    // memory init annotations could have been modified
+    val newAnnos = otherAnnos ++ resultAndRenames.flatMap(_._3)
+
     // chain module renames in topological order
-    val moduleRenames = resultAndRenames.map{ case(m,r) => m.name -> r }.toMap
+    val moduleRenames = resultAndRenames.map{ case(m,r, _) => m.name -> r }.toMap
     val moduleOrderBottomUp = new InstanceKeyGraph(result).moduleOrder.reverseIterator
     val renames = moduleOrderBottomUp.map(m => moduleRenames(m.name)).reduce((a,b) => a.andThen(b))
 
-    state.copy(circuit = result, renames = Some(renames))
+    state.copy(circuit = result, renames = Some(renames), annotations = newAnnos)
   }
 
-  def onModule(c: CircuitTarget, m: DefModule): (DefModule, RenameMap) = {
+  def onModule(c: CircuitTarget, m: DefModule, memoryInit: Seq[MemoryInitAnnotation]): (DefModule, RenameMap, Seq[MemoryInitAnnotation]) = {
     val renameMap = RenameMap()
     val ref = c.module(m.name)
     // scan modules to find all references
     val scan = SymbolTable.scanModule(m, new LoweringSymbolTable)
     // replace all declarations and references with the destructed types
     implicit val symbols: LoweringTable = new LoweringTable(scan, renameMap, ref)
+    implicit val memInit: Seq[MemoryInitAnnotation] = memoryInit
 
     val loweredPorts = m.ports.flatMap(symbols.lower) // we cannot use mapPort as ports might be expanded
     val newMod = m match {
@@ -73,12 +85,12 @@ object NewLowerTypes extends Transform {
       case mod: Module => mod.copy(ports = loweredPorts).mapStmt(onStatement)
     }
 
-    (newMod, renameMap)
+    (newMod, renameMap, memInit)
   }
 
   def onPort(p: Port)(symbols: LoweringTable): Seq[Port] = symbols.lower(p)
 
-  def onStatement(s: Statement)(implicit symbols: LoweringTable): Statement = s match {
+  def onStatement(s: Statement)(implicit symbols: LoweringTable, memInit: Seq[MemoryInitAnnotation]): Statement = s match {
     // declarations
     case d : DefWire =>
       Block(symbols.lower(d.name, d.tpe, firrtl.WireKind).map{case (name, tpe, _) => d.copy(name=name, tpe=tpe) })
@@ -103,6 +115,12 @@ object NewLowerTypes extends Transform {
     case d : DefMemory =>
       // TODO: as an optimization, we could just skip ground type memories here.
       //       This would require that we don't error in getReferences() but instead return the old reference.
+      val mems = symbols.lower(d)
+      if(mems.length > 1 && memInit.exists(_.target.ref == d.name)) {
+        val mod = memInit.find(_.target.ref == d.name).get.target.encapsulatingModule
+        val msg = s"[module $mod] Cannot initialize memory ${d.name} of non ground type ${d.dataType.serialize}"
+        throw new RuntimeException(msg)
+      }
       Block(symbols.lower(d))
     case d : DefInstance => symbols.lower(d)
     // connections
