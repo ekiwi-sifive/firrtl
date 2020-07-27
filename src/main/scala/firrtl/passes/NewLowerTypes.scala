@@ -12,9 +12,8 @@ import firrtl.stage.TransformManager.TransformDependency
 import scala.collection.mutable
 
 /** Flattens Bundles and Vecs.
-  * - Combines the following two legacy passes: Uniquify and LowerTypes
   * - Some implicit bundle types remain, but with a limited depth:
-  *   - the type of a memory is still a bundle with depth 2 (mem -> port -> field)
+  *   - the type of a memory is still a bundle with depth 2 (mem -> port -> field), see [[MemPortUtils.memType]]
   *   - the type of a module instance is still a bundle with depth 1 (instance -> port)
   */
 object NewLowerTypes extends Transform {
