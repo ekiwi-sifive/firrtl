@@ -338,17 +338,13 @@ class LowerTypesOfMemorySpec extends AnyFlatSpec {
     ))
   }
 
-  it should "rename even ground type memories if there are conflicts on the ports" in {
-    // Conflicting port names are not a problem for lower types, since ports do not get flattened at this stage.
-    // However, they later do get flattened and it is easiest to just do the renaming here.
+  it should "not rename ground type memories even if there are conflicts on the ports" in {
+    // There actually isn't such a thing as conflicting ports, because they do not get flattened by LowerTypes.
     val r = lower("mem", "UInt<1>", Set("mem_r", "mem_r_data"), w=Seq("r_data")).renameMap
-
-    assert(r.get(mem).isEmpty, "memory was not renamed")
-    assert(r.get(mem.field("r")).get == Seq(mem.field("r_")), "read port was renamed")
-    assert(r.underlying.size == 1, "only change should be the port rename")
+    assert(r.underlying.isEmpty)
   }
 
-  it should "rename references to lowered and/or renamed ports" in {
+  it should "rename references to lowered ports" in {
     val r = lower("mem", "{ a : UInt<1>, b : UInt<1>}", Set("mem_a"), r=Seq("r", "r_data")).renameMap
 
     // complete memory
@@ -356,43 +352,42 @@ class LowerTypesOfMemorySpec extends AnyFlatSpec {
 
     // read ports
     assert(get(r, mem.field("r")) ==
-      Set(m.ref("mem__a").field("r_"), m.ref("mem__b").field("r_")))
+      Set(m.ref("mem__a").field("r"), m.ref("mem__b").field("r")))
     assert(get(r, mem.field("r_data")) ==
       Set(m.ref("mem__a").field("r_data"), m.ref("mem__b").field("r_data")))
 
     // port fields
     assert(get(r, mem.field("r").field("data")) ==
-      Set(m.ref("mem__a").field("r_").field("data"),
-        m.ref("mem__b").field("r_").field("data")))
+      Set(m.ref("mem__a").field("r").field("data"),
+        m.ref("mem__b").field("r").field("data")))
     assert(get(r, mem.field("r").field("addr")) ==
-      Set(m.ref("mem__a").field("r_").field("addr"),
-        m.ref("mem__b").field("r_").field("addr")))
+      Set(m.ref("mem__a").field("r").field("addr"),
+        m.ref("mem__b").field("r").field("addr")))
     assert(get(r, mem.field("r").field("en")) ==
-      Set(m.ref("mem__a").field("r_").field("en"),
-        m.ref("mem__b").field("r_").field("en")))
+      Set(m.ref("mem__a").field("r").field("en"),
+        m.ref("mem__b").field("r").field("en")))
     assert(get(r, mem.field("r").field("clk")) ==
-      Set(m.ref("mem__a").field("r_").field("clk"),
-        m.ref("mem__b").field("r_").field("clk")))
+      Set(m.ref("mem__a").field("r").field("clk"),
+        m.ref("mem__b").field("r").field("clk")))
     assert(get(r, mem.field("w").field("mask")) ==
       Set(m.ref("mem__a").field("w").field("mask"),
         m.ref("mem__b").field("w").field("mask")))
 
     // port sub-fields
     assert(get(r, mem.field("r").field("data").field("a")) ==
-      Set(m.ref("mem__a").field("r_").field("data")))
+      Set(m.ref("mem__a").field("r").field("data")))
     assert(get(r, mem.field("r").field("data").field("b")) ==
-      Set(m.ref("mem__b").field("r_").field("data")))
+      Set(m.ref("mem__b").field("r").field("data")))
 
     // need to rename the following:
     // mem -> mem__a, mem__b
-    // mem.r -> mem__a.r_, mem__b.r_
-    // mem.r.data.{a,b} -> mem__{a,b}.r_.data
+    // mem.r.data.{a,b} -> mem__{a,b}.r.data
     // mem.w.data.{a,b} -> mem__{a,b}.w.data
     // mem.w.mask.{a,b} -> mem__{a,b}.w.mask
     // mem.r_data.data.{a,b} -> mem__{a,b}.r_data.data
     val renameCount = r.underlying.map(_._2.size).sum
-    assert(renameCount == 12, "it is enough to rename *to* 10 different signals")
-    assert(r.underlying.size == 10, "it is enough to rename (from) 8 different signals")
+    assert(renameCount == 10, "it is enough to rename *to* 10 different signals")
+    assert(r.underlying.size == 9, "it is enough to rename (from) 9 different signals")
   }
 
   it should "rename references for a memory with a nested data type" in {

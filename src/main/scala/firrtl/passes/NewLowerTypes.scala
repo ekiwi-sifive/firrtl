@@ -252,18 +252,6 @@ private object DestructTypes {
     */
   def destructMemory(m: ModuleTarget, mem: DefMemory, namespace: Namespace, renameMap: RenameMap):
   (Seq[DefMemory], Seq[(String, SubField)]) = {
-    // See if any read/write ports need to be renamed. This can happen, e.g., with two ports named `r` and `r_data`.
-    // While the renaming isn't necessary for LowerTypes as the port bundles are not lowered in this pass, it will
-    // be needed for Verilog emission later on.
-    val oldDummyField = Field("dummy", Default, MemPortUtils.memType(mem.copy(dataType = BoolType)))
-    val (rawPortRenames, _) = uniquify(oldDummyField, new Namespace())
-    val portRenames: Map[String, String] = rawPortRenames.map(_.children.mapValues(_.name)).getOrElse(Map())
-    val memRenamedPorts = mem.copy(
-      readers = mem.readers.map(n => portRenames.getOrElse(n, n)),
-      writers = mem.writers.map(n => portRenames.getOrElse(n, n)),
-      readwriters = mem.readwriters.map(n => portRenames.getOrElse(n, n))
-    )
-
     // Uniquify the lowered memory names: When memories get split up into ground types, the access order is changes.
     // E.g. `mem.r.data.x` becomes `mem_x.r.data`.
     // This is why we need to create the new bundle structure before we can resolve any name clashes.
@@ -276,8 +264,11 @@ private object DestructTypes {
     // We want to turn them into `mem.r.data.a.b` --> `mem_a_b.r.data`, etc. (for all readers, writers and for all ports)
     val oldMemRef = m.ref(mem.name)
 
+    // the "old dummy field" is used as a template for the new memory port types
+    val oldDummyField = Field("dummy", Default, MemPortUtils.memType(mem.copy(dataType = BoolType)))
+
     val newMemAndSubFields = res.map { case (field, refs) =>
-      val newMem = memRenamedPorts.copy(name = field.name, dataType = field.tpe)
+      val newMem = mem.copy(name = field.name, dataType = field.tpe)
       val newMemRef = m.ref(field.name)
       val memWasRenamed = field.name != mem.name // false iff the dataType was a GroundType
       if(memWasRenamed) { renameMap.record(oldMemRef, newMemRef) }
@@ -287,13 +278,10 @@ private object DestructTypes {
 
       val subFields = oldDummyField.tpe.asInstanceOf[BundleType].fields.flatMap { port =>
         val oldPortRef = oldMemRef.field(port.name)
-        val newPortName = portRenames.getOrElse(port.name, port.name)
-        val newPortRef = newMemRef.field(newPortName)
-        val portWasRenamed = newPortName != port.name
-        if(portWasRenamed) { renameMap.record(oldPortRef, newPortRef) }
+        val newPortRef = newMemRef.field(port.name)
 
-        val newPortType = newMemReference.tpe.asInstanceOf[BundleType].fields.find(_.name == newPortName).get.tpe
-        val newPortAccess = SubField(newMemReference, newPortName, newPortType)
+        val newPortType = newMemReference.tpe.asInstanceOf[BundleType].fields.find(_.name == port.name).get.tpe
+        val newPortAccess = SubField(newMemReference, port.name, newPortType)
 
         port.tpe.asInstanceOf[BundleType].fields.map { portField =>
           val isDataOrMaskField = portField.name == "data" || portField.name == "mask"
