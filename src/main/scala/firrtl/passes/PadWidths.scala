@@ -61,8 +61,12 @@ object PadWidths extends Pass {
     case ex: DoPrim => ex.op match {
       case Lt | Leq | Gt | Geq | Eq | Neq | Not | And | Or | Xor |
            Add | Sub | Mul | Div | Rem | Shr =>
+        // Mul isn't correct firrtl anymore since the result width is a.width + b.width
+        // Div isn't correct firrtl anymore since w_num could be increased
+        // Rem isn't correct firrtl anymore
+        // Shr and Not a unary operations
         // sensitive ops
-        ex map fixup((ex.args map width foldLeft 0)(math.max))
+        ex.map(fixup(ex.args.map(width).max))
       case Dshl =>
         // special case as args aren't all same width
         ex copy (op = Dshlw, args = Seq(fixup(width(ex.tpe))(ex.args.head), ex.args(1)))
