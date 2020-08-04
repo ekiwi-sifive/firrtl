@@ -9,6 +9,7 @@ import firrtl.ir._
 import firrtl.options.Dependency
 import firrtl.stage.TransformManager.TransformDependency
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 /** Flattens Bundles and Vecs.
@@ -228,7 +229,7 @@ private object DestructTypes {
     * - generates a list of all old reference name that now refer to the particular ground type field
     * - updates namespace with all possibly conflicting names
     */
-  def destruct(m: ModuleTarget, ref: Field, namespace: Namespace, renameMap: RenameMap):
+  def destruct(m: ModuleTarget, ref: Field, namespace: Namespace, renameMap: RenameMap, reserved: Set[String]):
     Seq[(Field, String)] = ref.tpe match {
     case _: GroundType => // early exit for ground types
       Seq((ref, ref.name))
@@ -236,7 +237,7 @@ private object DestructTypes {
       // ensure that the field name is part of the namespace
       namespace.add(ref.name)
       // field renames (uniquify) are computed bottom up
-      val (rename, _) = uniquify(ref, namespace)
+      val (rename, _) = uniquify(ref, namespace, reserved)
 
       // the reference renames are computed top down since they do need the full path
       val res = destruct(m, ref, rename)
@@ -410,16 +411,16 @@ private object DestructTypes {
   /** Implements the core functionality of the old Uniquify pass: rename bundle fields and top-level references
     * where necessary in order to avoid name clashes when lowering aggregate type with the `_` delimiter.
     * We don't actually do the rename here but just calculate a rename tree. */
-  private def uniquify(ref: Field, namespace: Namespace): (Option[RenameNode], Seq[String]) = ref.tpe match {
+  private def uniquify(ref: Field, namespace: Namespace, reserved: Set[String]): (Option[RenameNode], Seq[String]) = ref.tpe match {
     case BundleType(fields) =>
       // we rename bottom-up
       val localNamespace = new Namespace() ++ fields.map(_.name)
-      val renamedFields = fields.map(f => uniquify(f, localNamespace))
+      val renamedFields = fields.map(f => uniquify(f, localNamespace, Set()))
 
       // Need leading _ for findValidPrefix, it doesn't add _ for checks
       val renamedFieldNames = renamedFields.flatMap(_._2)
       val suffixNames: Seq[String] = renamedFieldNames.map(f => NewLowerTypes.delim + f)
-      val prefix = Uniquify.findValidPrefix(ref.name, suffixNames, namespace)
+      val prefix = findValidPrefix(ref.name, suffixNames, namespace.contains)
       // We added f.name in previous map, delete if we change it
       val renamed = prefix != ref.name
       if (renamed) {
@@ -437,9 +438,25 @@ private object DestructTypes {
       (rename, suffixes :+ prefix)
     case v : VectorType=>
       // if Vecs are to be lowered, we can just treat them like a bundle
-      uniquify(ref.copy(tpe = vecToBundle(v)), namespace)
-    case _ : GroundType => (None, List(ref.name))
+      uniquify(ref.copy(tpe = vecToBundle(v)), namespace, reserved)
+    case _ : GroundType =>
+      // Ground type names might need to be changed if they conflict with a reserved name.
+      // Reserved names are always assumed to be of ground type, thus they will never interfere with
+      // a non-ground type (like aVec or Bundle).
+      val name = findValidPrefix(ref.name, Seq(), reserved.contains)
+      (None, List(name))
     case UnknownType => throw new RuntimeException(s"Cannot uniquify field of unknown type: $ref")
+  }
+
+  /** Appends delim to prefix until no collisions of prefix + elts in names We don't add an _ in the collision check
+    * because elts could be Seq("") In this case, we're just really checking if prefix itself collides
+    */
+  @tailrec
+  def findValidPrefix(prefix: String, elts: Seq[String], namespace: String => Boolean): String = {
+    elts.find(elt => namespace(prefix + elt)) match {
+      case Some(_) => findValidPrefix(prefix + "_", elts, namespace)
+      case None => prefix
+    }
   }
 
   private def getFields(tpe: Type): Seq[Field] = tpe match {
